@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Copy go mod files
 COPY go.mod ./
-RUN go mod download
+RUN go mod download || true
 
 # Copy source code
 COPY . .
