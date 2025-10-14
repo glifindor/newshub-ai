@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { seoAPI, SEOMeta } from '../api/api'
+import { seoAPI } from '../api/api'
 
 interface SEOFormProps {
   newsId: string
@@ -8,7 +8,6 @@ interface SEOFormProps {
 export default function SEOForm({ newsId }: SEOFormProps) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [seo, setSeo] = useState<SEOMeta | null>(null)
 
   const [metaTitle, setMetaTitle] = useState('')
   const [metaDescription, setMetaDescription] = useState('')
@@ -24,13 +23,14 @@ export default function SEOForm({ newsId }: SEOFormProps) {
   const loadSEO = async () => {
     try {
       const data = await seoAPI.getNewsSEO(newsId)
-      setSeo(data)
-      setMetaTitle(data.meta_title || '')
-      setMetaDescription(data.meta_description || '')
-      setMetaKeywords(data.meta_keywords || '')
-      setOgTitle(data.og_title || '')
-      setOgDescription(data.og_description || '')
-      setOgImage(data.og_image || '')
+      if (data) {
+        setMetaTitle(data.title || '')
+        setMetaDescription(data.description || '')
+        setMetaKeywords(data.keywords || '')
+        setOgTitle(data.og_title || '')
+        setOgDescription(data.og_description || '')
+        setOgImage(data.og_image || '')
+      }
     } catch (error) {
       console.error('Failed to load SEO:', error)
     } finally {
@@ -42,9 +42,9 @@ export default function SEOForm({ newsId }: SEOFormProps) {
     setSaving(true)
     try {
       await seoAPI.updateNewsSEO(newsId, {
-        meta_title: metaTitle || undefined,
-        meta_description: metaDescription || undefined,
-        meta_keywords: metaKeywords || undefined,
+        title: metaTitle || undefined,
+        description: metaDescription || undefined,
+        keywords: metaKeywords || undefined,
         og_title: ogTitle || undefined,
         og_description: ogDescription || undefined,
         og_image: ogImage || undefined,

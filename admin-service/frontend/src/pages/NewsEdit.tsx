@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { newsAPI, seoAPI, News, CreateNewsRequest, UpdateNewsRequest } from '../api/api'
+import { newsAPI, CreateNewsRequest, UpdateNewsRequest } from '../api/api'
 import TipTapEditor from '../components/TipTapEditor'
 import SEOForm from '../components/SEOForm'
 
@@ -11,7 +11,6 @@ export default function NewsEdit() {
 
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [news, setNews] = useState<News | null>(null)
 
   const [title, setTitle] = useState('')
   const [slug, setSlug] = useState('')
@@ -21,7 +20,6 @@ export default function NewsEdit() {
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const [coverImage, setCoverImage] = useState('')
-  const [status, setStatus] = useState<'draft' | 'published'>('draft')
   const [showSEO, setShowSEO] = useState(false)
 
   useEffect(() => {
@@ -34,15 +32,13 @@ export default function NewsEdit() {
     setLoading(true)
     try {
       const data = await newsAPI.getNewsById(newsId)
-      setNews(data)
       setTitle(data.title)
       setSlug(data.slug)
       setSummary(data.summary || '')
       setContent(data.content)
       setCategory(data.category || '')
       setTags(data.tags || [])
-      setCoverImage(data.cover_image || '')
-      setStatus(data.status as 'draft' | 'published')
+      setCoverImage(data.image_url || '')
     } catch (error) {
       console.error('Failed to load news:', error)
       alert('Ошибка загрузки новости')
@@ -91,9 +87,8 @@ export default function NewsEdit() {
         slug,
         summary,
         content,
-        category: category || undefined,
         tags: tags.length > 0 ? tags : undefined,
-        cover_image: coverImage || undefined,
+        image_url: coverImage || undefined,
         status: publishStatus,
       }
 

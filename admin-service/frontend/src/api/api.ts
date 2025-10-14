@@ -1,6 +1,6 @@
 import axios, { AxiosError } from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/admin'
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || '/api/admin'
 
 export interface User {
   id: string
