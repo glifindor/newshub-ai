@@ -1,34 +1,35 @@
-# Сборка
-FROM golang:1.23-alpine AS builder
+# Build stage
+FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 
-# Копируем go.mod и go.sum
+# Copy go mod files
 COPY go.mod go.sum ./
 
-# Скачиваем зависимости
+# Download dependencies
 RUN go mod download
 
-    # Копируем исходники
-    COPY . .
+# Copy source code
+COPY . .
 
-    # Обновляем зависимости
-    RUN go mod tidy
+# Update dependencies
+RUN go mod tidy
 
-    # Собираем бинарник
-    RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o seo-service ./cmd/seo-service# Финальный образ
+# Build binary
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o seo-service ./cmd/seo-service
+
+# Final stage
 FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates tzdata
 
 WORKDIR /root/
 
-# Копируем бинарник из builder
+# Copy binary from builder
 COPY --from=builder /app/seo-service .
-COPY --from=builder /app/.env .
 COPY --from=builder /app/migrations ./migrations
 
-# Устанавливаем таймзону для России
+# Set timezone
 ENV TZ=Europe/Moscow
 
 EXPOSE 8093
