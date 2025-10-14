@@ -1,0 +1,96 @@
+# Environment files with sensitive data
+.env
+.env.local
+.env.production
+.env.*.local
+**/.env
+**/.env.local
+**/.env.production
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+bin/
+vendor/
+
+# Coverage
+coverage.out
+coverage.html
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+.cache/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.log
+docker-compose.override.yml
+
+# Protobuf generated files (keep in version control for convenience)
+# *.pb.go
+
+# Temporary files
+tmp/
+temp/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Build artifacts
+build/
+target/
+
+# Test cache
+.testcache/
+
+# Personal documents
+ПРОМТЫ.docx
+*.docx
+
+# Deployment scripts with server credentials
+deploy.ps1
+simple-deploy.sh
+deploy.sh
+create-env.sh
+init-db.sh
+fix-*.sh
+create-*.sh
+server-deploy.sh
+
+# Documentation with sensitive info
+MANUAL_DEPLOY.md
+DEPLOY_VIA_GIT.md
+TESTING_GUIDE.md
+TESTING_INSTRUCTIONS.md
+
+# Temporary documentation
+MISSING_COMPONENTS.md
+QUICK_FIX.md
+SUCCESS.md
+SUMMARY.md
+SIMPLE_DEPLOY.md
+

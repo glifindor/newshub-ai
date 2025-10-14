@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-color: #0ea5e9;
+  --text-color: #1f2937;
+  --bg-color: #ffffff;
+}
+
+body {
+  color: var(--text-color);
+  background: var(--bg-color);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* News content styles */
+.news-content {
+  @apply prose prose-lg max-w-none;
+}
+
+.news-content h1 {
+  @apply text-3xl font-bold mb-4 text-gray-900;
+}
+
+.news-content h2 {
+  @apply text-2xl font-bold mb-3 text-gray-800;
+}
+
+.news-content h3 {
+  @apply text-xl font-bold mb-2 text-gray-800;
+}
+
+.news-content p {
+  @apply mb-4 text-gray-700 leading-relaxed;
+}
+
+.news-content ul,
+.news-content ol {
+  @apply mb-4 ml-6;
+}
+
+.news-content li {
+  @apply mb-2;
+}
+
+.news-content a {
+  @apply text-primary-600 hover:text-primary-700 underline;
+}
+
+.news-content img {
+  @apply rounded-lg my-6 w-full;
+}
+
+.news-content blockquote {
+  @apply border-l-4 border-primary-500 pl-4 italic my-4 text-gray-600;
+}
+
+.news-content code {
+  @apply bg-gray-100 px-2 py-1 rounded text-sm font-mono;
+}
+
+.news-content pre {
+  @apply bg-gray-900 text-white p-4 rounded-lg overflow-x-auto my-4;
+}
+
+.news-content pre code {
+  @apply bg-transparent p-0;
+}

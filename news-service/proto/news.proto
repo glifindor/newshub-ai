@@ -1,0 +1,165 @@
+syntax = "proto3";
+
+package news;
+
+option go_package = "news-service/proto";
+
+import "google/protobuf/timestamp.proto";
+
+service NewsService {
+  // News CRUD
+  rpc CreateNews(CreateNewsRequest) returns (NewsResponse);
+  rpc GetNews(GetNewsRequest) returns (NewsResponse);
+  rpc GetNewsBySlug(GetNewsBySlugRequest) returns (NewsResponse);
+  rpc ListNews(ListNewsRequest) returns (ListNewsResponse);
+  rpc UpdateNews(UpdateNewsRequest) returns (NewsResponse);
+  rpc DeleteNews(DeleteNewsRequest) returns (DeleteNewsResponse);
+  rpc PublishNews(PublishNewsRequest) returns (NewsResponse);
+  
+  // Categories
+  rpc CreateCategory(CreateCategoryRequest) returns (CategoryResponse);
+  rpc GetCategory(GetCategoryRequest) returns (CategoryResponse);
+  rpc ListCategories(ListCategoriesRequest) returns (ListCategoriesResponse);
+  
+  // Tags
+  rpc CreateTag(CreateTagRequest) returns (TagResponse);
+  rpc GetTag(GetTagRequest) returns (TagResponse);
+  rpc ListTags(ListTagsRequest) returns (ListTagsResponse);
+}
+
+message News {
+  string id = 1;
+  string title = 2;
+  string slug = 3;
+  string content = 4;
+  string summary = 5;
+  string author_id = 6;
+  string category_id = 7;
+  repeated string tag_ids = 8;
+  string featured_image = 9;
+  string status = 10; // draft, published, archived
+  int32 views_count = 11;
+  google.protobuf.Timestamp published_at = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}
+
+message Category {
+  string id = 1;
+  string name = 2;
+  string slug = 3;
+  string description = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message Tag {
+  string id = 1;
+  string name = 2;
+  string slug = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message CreateNewsRequest {
+  string title = 1;
+  string content = 2;
+  string summary = 3;
+  string author_id = 4;
+  string category_id = 5;
+  repeated string tag_ids = 6;
+  string featured_image = 7;
+}
+
+message GetNewsRequest {
+  string id = 1;
+}
+
+message GetNewsBySlugRequest {
+  string slug = 1;
+}
+
+message ListNewsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string category_id = 3;
+  string status = 4;
+  string search = 5;
+}
+
+message UpdateNewsRequest {
+  string id = 1;
+  string title = 2;
+  string content = 3;
+  string summary = 4;
+  string category_id = 5;
+  repeated string tag_ids = 6;
+  string featured_image = 7;
+}
+
+message DeleteNewsRequest {
+  string id = 1;
+}
+
+message PublishNewsRequest {
+  string id = 1;
+}
+
+message NewsResponse {
+  News news = 1;
+}
+
+message ListNewsResponse {
+  repeated News news = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message DeleteNewsResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message CreateCategoryRequest {
+  string name = 1;
+  string description = 2;
+}
+
+message GetCategoryRequest {
+  string id = 1;
+}
+
+message ListCategoriesRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+message CategoryResponse {
+  Category category = 1;
+}
+
+message ListCategoriesResponse {
+  repeated Category categories = 1;
+  int32 total = 2;
+}
+
+message CreateTagRequest {
+  string name = 1;
+}
+
+message GetTagRequest {
+  string id = 1;
+}
+
+message ListTagsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+message TagResponse {
+  Tag tag = 1;
+}
+
+message ListTagsResponse {
+  repeated Tag tags = 1;
+  int32 total = 2;
+}
