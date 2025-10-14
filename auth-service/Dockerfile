@@ -8,6 +8,7 @@ RUN apk add --no-cache git
 
 # Copy go mod files
 COPY go.mod ./
+RUN go mod tidy
 RUN go mod download || true
 
 # Copy source code

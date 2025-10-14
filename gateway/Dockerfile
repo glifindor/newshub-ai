@@ -3,11 +3,10 @@ FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 
-# Copy go mod files
-COPY go.mod ./
-RUN go mod download || true
-
-# Copy source code
+    # Copy go mod files
+    COPY go.mod ./
+    RUN go mod tidy
+    RUN go mod download || true# Copy source code
 COPY . .
 
 # Build the application
