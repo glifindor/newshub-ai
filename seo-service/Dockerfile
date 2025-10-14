@@ -9,13 +9,14 @@ COPY go.mod go.sum ./
 # Скачиваем зависимости
 RUN go mod download
 
-# Копируем исходники
-COPY . .
+    # Копируем исходники
+    COPY . .
 
-# Собираем бинарник
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o seo-service ./cmd/seo-service
+    # Обновляем зависимости
+    RUN go mod tidy
 
-# Финальный образ
+    # Собираем бинарник
+    RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o seo-service ./cmd/seo-service# Финальный образ
 FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates tzdata

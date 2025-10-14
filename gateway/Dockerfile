@@ -9,6 +9,9 @@ WORKDIR /app
     RUN go mod download || true# Copy source code
 COPY . .
 
+# Update dependencies
+RUN go mod tidy
+
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -o gateway ./cmd/gateway
 

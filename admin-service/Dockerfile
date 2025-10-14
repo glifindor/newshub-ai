@@ -13,8 +13,11 @@ RUN go mod download
 # Copy source code
 COPY . .
 
+# Update dependencies
+RUN go mod tidy
+
 # Build backend
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o admin-service ./cmd/admin-service
+RUN CGO_ENABLED=0 GOOS=linux go build -o admin-service ./cmd/admin-service
 
 # Stage 2: Build frontend
 FROM node:20-alpine AS frontend-builder

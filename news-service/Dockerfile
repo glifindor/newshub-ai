@@ -3,11 +3,15 @@ FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 
-    # Copy go mod files
-    COPY go.mod ./
-    RUN go mod tidy
-    RUN go mod download || true# Copy source code
+# Copy go mod files
+COPY go.mod ./
+RUN go mod download || true
+
+# Copy source code
 COPY . .
+
+# Update dependencies
+RUN go mod tidy
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -o news-service ./cmd/news-service
