@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,13 +16,10 @@ import (
 	"auth-service/internal/service"
 	"auth-service/pkg/database"
 	"auth-service/pkg/logger"
-	pb "auth-service/proto"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 )
 
 func main() {
@@ -71,7 +67,6 @@ func main() {
 	// Инициализация репозиториев
 	userRepo := repository.NewUserRepository(db)
 	sessionRepo := repository.NewSessionRepository(redisClient)
-	blacklistRepo := repository.NewBlacklistRepository(redisClient)
 
 	// Инициализация сервисов
 	tokenService := service.NewTokenService(cfg.JWTSecret, cfg.JWTAccessExpiry, cfg.JWTRefreshExpiry)
@@ -84,21 +79,19 @@ func main() {
 	}
 
 	router := gin.Default()
+	httpHandler := handler.NewHTTPHandler(authService, userService)
 	authMiddleware := middleware.NewAuthMiddleware(tokenService)
 
-	// HTTP handlers
-	httpHandler := handler.NewHTTPHandler(authService, userService)
-
 	// Public routes
-	v1 := router.Group("/api/v1/auth")
+	v1 := router.Group("/api/v1")
 	{
 		v1.POST("/register", httpHandler.Register)
 		v1.POST("/login", httpHandler.Login)
-		v1.POST("/refresh", httpHandler.RefreshToken)
+		v1.POST("/refresh-token", httpHandler.RefreshToken)
 	}
 
 	// Protected routes
-	protected := router.Group("/api/v1/auth")
+	protected := router.Group("/api/v1")
 	protected.Use(authMiddleware.RequireAuth())
 	{
 		protected.POST("/logout", httpHandler.Logout)
@@ -127,24 +120,6 @@ func main() {
 		}
 	}()
 
-	// gRPC Server
-	grpcServer := grpc.NewServer()
-	grpcHandler := handler.NewAuthHandler(authService)
-	pb.RegisterAuthServiceServer(grpcServer, grpcHandler)
-	reflection.Register(grpcServer)
-
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GRPCPort))
-	if err != nil {
-		logger.Fatal("Failed to listen on gRPC port", zap.String("port", cfg.GRPCPort), zap.Error(err))
-	}
-
-	go func() {
-		logger.Info("gRPC server started", zap.String("port", cfg.GRPCPort))
-		if err := grpcServer.Serve(listener); err != nil {
-			logger.Fatal("Failed to serve gRPC", zap.Error(err))
-		}
-	}()
-
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -152,15 +127,11 @@ func main() {
 
 	logger.Info("Shutting down Auth Service...")
 
-	// Остановка HTTP сервера
 	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := httpServer.Shutdown(ctx); err != nil {
 		logger.Error("HTTP server forced to shutdown", zap.Error(err))
 	}
-
-	// Остановка gRPC сервера
-	grpcServer.GracefulStop()
 
 	logger.Info("Auth Service stopped gracefully")
 }

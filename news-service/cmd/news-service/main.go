@@ -66,11 +66,8 @@ func main() {
 	categoryRepo := repository.NewCategoryRepository(db)
 	tagRepo := repository.NewTagRepository(db)
 
-	// SEO Service
-	seoService := service.NewSEOService(logger.GetLogger())
-
 	// Services
-	newsService := service.NewNewsService(newsRepo, categoryRepo, tagRepo, redisClient, seoService)
+	newsService := service.NewNewsService(newsRepo, categoryRepo, tagRepo, redisClient)
 	categoryService := service.NewCategoryService(categoryRepo, redisClient)
 	tagService := service.NewTagService(tagRepo)
 
@@ -87,7 +84,6 @@ func main() {
 	{
 		// News
 		v1.GET("/news", httpHandler.ListNews)
-		v1.GET("/news/search", httpHandler.SearchNews) // Full Text Search
 		v1.GET("/news/:slug", httpHandler.GetNewsBySlug)
 		v1.GET("/news/featured", httpHandler.GetFeaturedNews)
 		v1.GET("/news/breaking", httpHandler.GetBreakingNews)
@@ -144,26 +140,6 @@ func main() {
 		}
 	}()
 
-	// gRPC Server (disabled for now)
-	/*
-		grpcServer := grpc.NewServer()
-		newsHandler := handler.NewNewsHandler(newsService, categoryService, tagService)
-		pb.RegisterNewsServiceServer(grpcServer, newsHandler)
-		reflection.Register(grpcServer)
-
-		listener, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GRPCPort))
-		if err != nil {
-			logger.Fatal("Failed to listen on gRPC port", zap.String("port", cfg.GRPCPort), zap.Error(err))
-		}
-
-		go func() {
-			logger.Info("gRPC server started", zap.String("port", cfg.GRPCPort))
-			if err := grpcServer.Serve(listener); err != nil {
-				logger.Fatal("Failed to serve gRPC", zap.Error(err))
-			}
-		}()
-	*/
-
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -177,6 +153,5 @@ func main() {
 		logger.Error("HTTP server forced to shutdown", zap.Error(err))
 	}
 
-	// grpcServer.GracefulStop() // Disabled
 	logger.Info("News Service stopped gracefully")
 }

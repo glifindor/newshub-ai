@@ -10,13 +10,11 @@ RUN go mod download || true
 # Copy source code
 COPY . .
 
-# Update dependencies
-RUN go mod tidy
+    # Update dependencies
+    RUN go mod tidy
 
-# Build the application (HTTP only, no gRPC)
-RUN CGO_ENABLED=0 GOOS=linux go build -o news-service ./cmd/news-service/main-http-only.go
-
-# Final stage
+    # Build the application
+    RUN CGO_ENABLED=0 GOOS=linux go build -o news-service ./cmd/news-service# Final stage
 FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates
