@@ -33,8 +33,8 @@ RUN npm ci
 # Copy frontend source
 COPY frontend/ ./
 
-# Build frontend (skip type checking for now)
-RUN npm run build || true
+# Build frontend
+RUN npm run build
 
 # Stage 3: Final image
 FROM alpine:latest

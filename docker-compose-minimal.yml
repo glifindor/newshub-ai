@@ -1,0 +1,214 @@
+version: '3.8'
+
+services:
+  # Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: news-postgres
+    environment:
+      POSTGRES_USER: newsportal
+      POSTGRES_PASSWORD: newsportal123
+      POSTGRES_DB: newsportal_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - news-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U newsportal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching
+  redis:
+    image: redis:7-alpine
+    container_name: news-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - news-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Auth Service
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: news-auth
+    ports:
+      - "8081:8081"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: newsportal
+      DB_PASSWORD: newsportal123
+      DB_NAME: newsportal_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: super-secret-jwt-key-2024
+      PORT: 8081
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - news-network
+    restart: unless-stopped
+
+  # News Service
+  news-service:
+    build:
+      context: ./news-service
+      dockerfile: Dockerfile
+    container_name: news-service
+    ports:
+      - "8082:8082"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: newsportal
+      DB_PASSWORD: newsportal123
+      DB_NAME: newsportal_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      PORT: 8082
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - news-network
+    restart: unless-stopped
+
+  # SEO Service
+  seo-service:
+    build:
+      context: ./seo-service
+      dockerfile: Dockerfile
+    container_name: seo-service
+    ports:
+      - "8093:8093"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: newsportal
+      DB_PASSWORD: newsportal123
+      DB_NAME: newsportal_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      BASE_URL: ${BASE_URL:-http://localhost}
+      SITE_NAME: "News Portal"
+      PORT: 8093
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - news-network
+    restart: unless-stopped
+
+  # Media Service
+  media-service:
+    build:
+      context: ./media-service
+      dockerfile: Dockerfile
+    container_name: media-service
+    ports:
+      - "8085:8085"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: newsportal
+      DB_PASSWORD: newsportal123
+      DB_NAME: newsportal_db
+      UPLOAD_DIR: /uploads
+      MAX_FILE_SIZE: 10485760
+      PORT: 8085
+    volumes:
+      - media_uploads:/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - news-network
+    restart: unless-stopped
+
+  # Admin Service (Backend + React Admin Panel)
+  admin-service:
+    build:
+      context: ./admin-service
+      dockerfile: Dockerfile
+    container_name: admin-service
+    ports:
+      - "8084:8084"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: newsportal
+      DB_PASSWORD: newsportal123
+      DB_NAME: newsportal_db
+      JWT_SECRET: super-secret-jwt-key-2024
+      NEWS_SERVICE_URL: http://news-service:8082
+      SEO_SERVICE_URL: http://seo-service:8093
+      MEDIA_SERVICE_URL: http://media-service:8085
+      PORT: 8084
+    depends_on:
+      postgres:
+        condition: service_healthy
+      news-service:
+        condition: service_started
+      seo-service:
+        condition: service_started
+      media-service:
+        condition: service_started
+    networks:
+      - news-network
+    restart: unless-stopped
+
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: news-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://${SERVER_IP:-localhost}:8080
+    networks:
+      - news-network
+    restart: unless-stopped
+
+  # Nginx Gateway (простой reverse proxy)
+  nginx-gateway:
+    image: nginx:alpine
+    container_name: nginx-gateway
+    ports:
+      - "8080:80"
+    volumes:
+      - ./gateway-nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - auth-service
+      - news-service
+      - seo-service
+      - media-service
+    networks:
+      - news-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  media_uploads:
+
+networks:
+  news-network:
+    driver: bridge
