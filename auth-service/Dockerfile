@@ -17,7 +17,9 @@ COPY . .
     RUN go mod tidy
 
     # Build the application
-    RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o auth-service ./cmd/auth-service# Final stage
+    RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o auth-service ./cmd/auth-service
+
+# Final stage
 FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates
