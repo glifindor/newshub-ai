@@ -291,14 +291,21 @@ jobs:
             # Stop and remove old containers to avoid metadata issues
             docker-compose down --remove-orphans
 
-            # Recreate containers
-            docker-compose up -d --force-recreate --no-deps backend frontend nginx
-            
-            # Wait for services to be healthy
+            # Start core services back up
+            docker-compose up -d postgres redis rabbitmq
+
+            # Recreate backend first and wait for it to become ready
+            docker-compose up -d --force-recreate backend
             sleep 30
-            
-            # Run migrations
-            docker-compose exec -T backend alembic upgrade head
+
+            # Run migrations inside backend container
+            docker-compose exec -T backend /opt/venv/bin/alembic upgrade head
+
+            # Recreate frontend and nginx once backend is healthy
+            docker-compose up -d --force-recreate frontend nginx
+
+            # Ensure worker services are running with the new image
+            docker-compose up -d celery_worker celery_beat celery_flower
             
             # Clean up old images
             docker image prune -af --filter "until=72h"
