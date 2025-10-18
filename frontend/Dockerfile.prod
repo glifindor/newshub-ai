@@ -14,9 +14,11 @@ RUN apk add --no-cache libc6-compat
 # Копирование файлов зависимостей
 COPY package.json package-lock.json* ./
 
-    # Установка зависимостей
-    RUN npm ci --ignore-scripts && \
-        npm cache clean --force# Stage 2: Builder
+# Установка зависимостей
+RUN npm ci --ignore-scripts && \
+    npm cache clean --force
+
+# Stage 2: Builder
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -30,11 +32,13 @@ ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_WS_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
     NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL \
-    NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1
 
 # Установка всех зависимостей (включая dev) для сборки
 RUN npm ci
+
+# Включаем production после установки зависимостей
+ENV NODE_ENV=production
 
 # Сборка приложения
 RUN npm run build
