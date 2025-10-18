@@ -10,6 +10,7 @@
 Запуск:
     python scripts/test_telegram_quick.py
 """
+
 import asyncio
 import sys
 from pathlib import Path
@@ -19,24 +20,25 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from telegram import Bot
 from telegram.constants import ParseMode
+
 from app.core.config import settings
 
 
 async def test_bot_connection():
     """Тест подключения к боту"""
     print("\n🤖 Шаг 1: Проверка подключения к боту...")
-    
+
     try:
         bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
         me = await bot.get_me()
-        
+
         print(f"✅ Бот подключен успешно!")
         print(f"   📝 Имя: {me.first_name}")
         print(f"   🔗 Username: @{me.username}")
         print(f"   🆔 Bot ID: {me.id}")
-        
+
         return bot
-        
+
     except Exception as e:
         print(f"❌ Ошибка подключения к боту: {e}")
         print(f"\n💡 Проверьте:")
@@ -48,8 +50,10 @@ async def test_bot_connection():
 
 async def test_admin_message(bot: Bot):
     """Тест отправки сообщения админу"""
-    print(f"\n📨 Шаг 2: Отправка тестового сообщения админу (ID: {settings.TELEGRAM_ADMIN_CHAT_ID})...")
-    
+    print(
+        f"\n📨 Шаг 2: Отправка тестового сообщения админу (ID: {settings.TELEGRAM_ADMIN_CHAT_ID})..."
+    )
+
     try:
         message = await bot.send_message(
             chat_id=settings.TELEGRAM_ADMIN_CHAT_ID,
@@ -71,13 +75,13 @@ async def test_admin_message(bot: Bot):
             ),
             parse_mode=ParseMode.HTML,
         )
-        
+
         print(f"✅ Сообщение отправлено админу!")
         print(f"   🆔 Message ID: {message.message_id}")
         print(f"   ⏰ Время: {message.date}")
-        
+
         return True
-        
+
     except Exception as e:
         print(f"❌ Ошибка отправки админу: {e}")
         print(f"\n💡 Проверьте:")
@@ -89,8 +93,10 @@ async def test_admin_message(bot: Bot):
 
 async def test_crypto_channel(bot: Bot):
     """Тест публикации в крипто-канал"""
-    print(f"\n🔐 Шаг 3: Публикация в крипто-канал ({settings.TELEGRAM_CRYPTO_CHANNEL})...")
-    
+    print(
+        f"\n🔐 Шаг 3: Публикация в крипто-канал ({settings.TELEGRAM_CRYPTO_CHANNEL})..."
+    )
+
     test_message = """
 🔐 <b>Bitcoin достиг исторического максимума $100,000!</b>
 
@@ -105,7 +111,7 @@ async def test_crypto_channel(bot: Bot):
 
 #Bitcoin #Crypto #ATH #BTC #Blockchain
 """
-    
+
     try:
         message = await bot.send_message(
             chat_id=settings.TELEGRAM_CRYPTO_CHANNEL,
@@ -113,13 +119,15 @@ async def test_crypto_channel(bot: Bot):
             parse_mode=ParseMode.HTML,
             disable_web_page_preview=False,
         )
-        
+
         print(f"✅ Сообщение опубликовано в крипто-канале!")
         print(f"   🆔 Message ID: {message.message_id}")
-        print(f"   🔗 Ссылка: https://t.me/{settings.TELEGRAM_CRYPTO_CHANNEL.lstrip('@')}/{message.message_id}")
-        
+        print(
+            f"   🔗 Ссылка: https://t.me/{settings.TELEGRAM_CRYPTO_CHANNEL.lstrip('@')}/{message.message_id}"
+        )
+
         return True
-        
+
     except Exception as e:
         print(f"❌ Ошибка публикации в крипто-канале: {e}")
         print(f"\n💡 Проверьте:")
@@ -132,8 +140,10 @@ async def test_crypto_channel(bot: Bot):
 
 async def test_politics_channel(bot: Bot):
     """Тест публикации в политический канал"""
-    print(f"\n🏛️ Шаг 4: Публикация в политический канал ({settings.TELEGRAM_POLITICS_CHANNEL})...")
-    
+    print(
+        f"\n🏛️ Шаг 4: Публикация в политический канал ({settings.TELEGRAM_POLITICS_CHANNEL})..."
+    )
+
     test_message = """
 🏛️ <b>Новый саммит G20 пройдёт в Москве</b>
 
@@ -148,7 +158,7 @@ async def test_politics_channel(bot: Bot):
 
 #G20 #Политика #Москва #Саммит #Россия
 """
-    
+
     try:
         message = await bot.send_message(
             chat_id=settings.TELEGRAM_POLITICS_CHANNEL,
@@ -156,13 +166,15 @@ async def test_politics_channel(bot: Bot):
             parse_mode=ParseMode.HTML,
             disable_web_page_preview=False,
         )
-        
+
         print(f"✅ Сообщение опубликовано в политическом канале!")
         print(f"   🆔 Message ID: {message.message_id}")
-        print(f"   🔗 Ссылка: https://t.me/{settings.TELEGRAM_POLITICS_CHANNEL.lstrip('@')}/{message.message_id}")
-        
+        print(
+            f"   🔗 Ссылка: https://t.me/{settings.TELEGRAM_POLITICS_CHANNEL.lstrip('@')}/{message.message_id}"
+        )
+
         return True
-        
+
     except Exception as e:
         print(f"❌ Ошибка публикации в политическом канале: {e}")
         print(f"\n💡 Проверьте:")
@@ -176,7 +188,7 @@ async def test_politics_channel(bot: Bot):
 async def test_with_image(bot: Bot):
     """Тест публикации с изображением"""
     print(f"\n🖼️ Шаг 5: Тест публикации с изображением...")
-    
+
     test_caption = """
 🔐 <b>Ethereum переходит на Proof of Stake</b>
 
@@ -190,10 +202,12 @@ async def test_with_image(bot: Bot):
 
 #Ethereum #ETH #PoS
 """
-    
+
     # Тестовое изображение (placeholder)
-    test_image_url = "https://via.placeholder.com/1200x630/1E88E5/FFFFFF?text=NewsHub+AI+Test"
-    
+    test_image_url = (
+        "https://via.placeholder.com/1200x630/1E88E5/FFFFFF?text=NewsHub+AI+Test"
+    )
+
     try:
         message = await bot.send_photo(
             chat_id=settings.TELEGRAM_CRYPTO_CHANNEL,
@@ -201,12 +215,12 @@ async def test_with_image(bot: Bot):
             caption=test_caption,
             parse_mode=ParseMode.HTML,
         )
-        
+
         print(f"✅ Сообщение с изображением опубликовано!")
         print(f"   🆔 Message ID: {message.message_id}")
-        
+
         return True
-        
+
     except Exception as e:
         print(f"⚠️ Ошибка публикации с изображением: {e}")
         print(f"   Это нормально, fallback на текстовое сообщение работает")
@@ -218,25 +232,25 @@ async def main():
     print("=" * 60)
     print("🚀 ТЕСТИРОВАНИЕ TELEGRAM БОТА NewsHub AI")
     print("=" * 60)
-    
+
     # Шаг 1: Подключение
     bot = await test_bot_connection()
     if not bot:
         print("\n❌ Тест провален на шаге 1. Исправьте ошибки и повторите.")
         return
-    
+
     # Шаг 2: Админ сообщение
     admin_ok = await test_admin_message(bot)
-    
+
     # Шаг 3: Крипто канал
     crypto_ok = await test_crypto_channel(bot)
-    
+
     # Шаг 4: Политический канал
     politics_ok = await test_politics_channel(bot)
-    
+
     # Шаг 5: С изображением
     image_ok = await test_with_image(bot)
-    
+
     # Итоги
     print("\n" + "=" * 60)
     print("📊 РЕЗУЛЬТАТЫ ТЕСТИРОВАНИЯ")
@@ -247,7 +261,7 @@ async def main():
     print(f"4. Публикация в полит-канал:   {'✅' if politics_ok else '❌'}")
     print(f"5. Публикация с изображением:  {'✅' if image_ok else '⚠️'}")
     print("=" * 60)
-    
+
     if all([bot, admin_ok, crypto_ok, politics_ok]):
         print("\n🎉 ВСЕ ТЕСТЫ ПРОЙДЕНЫ! БОТ ГОТОВ К РАБОТЕ!")
         print("\nСледующие шаги:")
@@ -258,7 +272,7 @@ async def main():
     else:
         print("\n⚠️ НЕКОТОРЫЕ ТЕСТЫ НЕ ПРОШЛИ")
         print("Исправьте указанные ошибки и повторите тест.")
-    
+
     print("\n📚 Документация: backend/docs/TELEGRAM_BOT_SETUP.md")
     print("=" * 60)
 

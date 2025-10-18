@@ -1,5 +1,6 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import auth, news, sources, telegram, admin, pipeline
+
+from app.api.v1.endpoints import admin, auth, news, pipeline, sources, telegram
 
 api_router = APIRouter()
 

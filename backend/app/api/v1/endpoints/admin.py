@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.database import get_db
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db
 
 router = APIRouter()
 
@@ -15,9 +16,7 @@ class DashboardStats(BaseModel):
 
 
 @router.get("/dashboard", response_model=DashboardStats)
-async def get_dashboard_stats(
-    db: AsyncSession = Depends(get_db)
-):
+async def get_dashboard_stats(db: AsyncSession = Depends(get_db)):
     """
     Получить статистику для dashboard админа
     """
@@ -27,15 +26,12 @@ async def get_dashboard_stats(
         "pending_news": 23,
         "published_today": 45,
         "ai_cost_today": 12.34,
-        "sources_active": 15
+        "sources_active": 15,
     }
 
 
 @router.get("/logs")
-async def get_system_logs(
-    limit: int = 100,
-    db: AsyncSession = Depends(get_db)
-):
+async def get_system_logs(limit: int = 100, db: AsyncSession = Depends(get_db)):
     """
     Получить системные логи
     """
@@ -46,7 +42,7 @@ async def get_system_logs(
                 "level": "info",
                 "service": "collector",
                 "message": "Collected 10 news from CoinDesk",
-                "timestamp": "2025-01-18T12:00:00Z"
+                "timestamp": "2025-01-18T12:00:00Z",
             }
         ]
     }

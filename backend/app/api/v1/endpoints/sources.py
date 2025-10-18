@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.database import get_db
-from pydantic import BaseModel, HttpUrl
 from typing import List
+
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, HttpUrl
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db
 
 router = APIRouter()
 
@@ -24,9 +26,7 @@ class SourceResponse(BaseModel):
 
 
 @router.get("/", response_model=List[SourceResponse])
-async def get_sources(
-    db: AsyncSession = Depends(get_db)
-):
+async def get_sources(db: AsyncSession = Depends(get_db)):
     """
     Получить список всех источников новостей
     """
@@ -38,16 +38,13 @@ async def get_sources(
             "type": "rss",
             "url": "https://www.coindesk.com/arc/outboundfeeds/rss/",
             "category": "crypto",
-            "is_active": True
+            "is_active": True,
         }
     ]
 
 
 @router.post("/", response_model=SourceResponse)
-async def create_source(
-    source: SourceCreate,
-    db: AsyncSession = Depends(get_db)
-):
+async def create_source(source: SourceCreate, db: AsyncSession = Depends(get_db)):
     """
     Добавить новый источник новостей
     """
@@ -58,14 +55,12 @@ async def create_source(
         "type": source.type,
         "url": str(source.url),
         "category": source.category,
-        "is_active": True
+        "is_active": True,
     }
 
 
 @router.post("/collect")
-async def trigger_collection(
-    db: AsyncSession = Depends(get_db)
-):
+async def trigger_collection(db: AsyncSession = Depends(get_db)):
     """
     Запустить сбор новостей вручную
     """
