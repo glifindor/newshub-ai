@@ -290,6 +290,7 @@ jobs:
             
             # Stop and remove old containers to avoid metadata issues
             docker-compose down --remove-orphans
+            docker-compose rm -f -s -v backend frontend nginx postgres redis rabbitmq celery_worker celery_beat celery_flower || true
 
             # Start core services back up
             docker-compose up -d postgres redis rabbitmq
