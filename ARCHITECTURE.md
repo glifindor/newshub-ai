@@ -1,1191 +1,901 @@
-# Архитектура микросервисного новостного портала
+# NewsHub AI - Архитектура системы
 
-## 📋 Общая схема системы
+## 📋 Overview (Обзор)
+
+**NewsHub AI** — центральный хаб для автоматического сбора, AI-анализа и публикации новостей в Telegram-каналы:
+- 🔐 **@crypto_ainews** — криптовалюта, IT, AI-анализ
+- 🏛️ **@kremlin_digest** — политика России и мира
+
+### Ключевые возможности
+- ✅ Автоматический сбор новостей из RSS/API
+- 🤖 AI-анализ с помощью OpenRouter (GPT-4, Claude)
+- 🖼️ Генерация изображений через Freepik API
+- 📤 Автопостинг в Telegram с форматированием
+- 👨‍💼 Админ-панель для модерации
+- 🌐 Публичный архив новостей
+- 🔔 Уведомления админам при спорных новостях
+
+---
+
+## 🏗️ Components (Компоненты системы)
+
+### 1️⃣ **News Collector Service** (Сборщик новостей)
+**Задача:** Сбор новостей из внешних источников
+
+**Источники данных:**
+- RSS-фиды (CoinDesk, Reuters, TASS, RIA)
+- NewsAPI.org
+- Web scraping (Selenium/BeautifulSoup)
+- Twitter API (опционально)
+
+**Функции:**
+- Парсинг RSS каждые 5-15 минут (Celery Beat)
+- Дедупликация по хэшу контента (MD5)
+- Первичная фильтрация по ключевым словам
+- Сохранение сырых данных в БД
+
+**Endpoints:**
+```
+POST /api/collector/sources        # Добавить источник
+GET  /api/collector/sources         # Список источников
+POST /api/collector/run             # Запустить сбор вручную
+GET  /api/collector/stats           # Статистика сбора
+```
+
+---
+
+### 2️⃣ **AI Analyzer Service** (AI-анализатор)
+**Задача:** Обработка и анализ новостей с помощью ИИ
+
+**AI-провайдеры:**
+- **OpenRouter API** (GPT-4, Claude 3, Llama 3)
+  - Endpoint: `https://openrouter.ai/api/v1/chat/completions`
+  - Промпты для: суммаризации, sentiment analysis, категоризации
+- **Freepik API** (генерация обложек)
+  - Endpoint: `https://api.freepik.com/v1/ai/text-to-image`
+
+**Процесс анализа:**
+1. Извлечь текст новости
+2. Отправить в OpenRouter с промптом:
+   ```
+   "Ты — аналитик. Кратко опиши новость (3-5 предложений), 
+   выдели ключевые инсайты, оцени важность (1-10), 
+   определи тематику: crypto/it/politics/world"
+   ```
+3. Сгенерировать изображение (если нет) через Freepik
+4. Сохранить результат в БД
+
+**Endpoints:**
+```
+POST /api/ai/analyze/{news_id}      # Анализировать новость
+POST /api/ai/generate-image         # Генерация изображения
+GET  /api/ai/status/{task_id}       # Статус задачи
+```
+
+---
+
+### 3️⃣ **Telegram Poster Service** (Постер в Telegram)
+**Задача:** Публикация в каналы
+
+**Telegram Bot API:**
+- Метод: `sendMessage`, `sendPhoto`
+- Форматирование: HTML/Markdown
+- Rate limits: 30 сообщений/сек
+
+**Формат поста:**
+```
+🔥 [ЭМОДЗИ] ЗАГОЛОВОК
+
+📝 Краткое описание (AI-саммари)
+
+💡 AI-инсайт: [Аналитика от ИИ]
+
+🔗 Читать подробнее: [ссылка]
+
+#crypto #bitcoin #ai
+```
+
+**Логика маршрутизации:**
+- `category == "crypto" OR "it"` → @crypto_ainews
+- `category == "politics" OR "russia"` → @kremlin_digest
+- `importance > 8` → отправить админу на модерацию
+
+**Endpoints:**
+```
+POST /api/telegram/post             # Опубликовать новость
+POST /api/telegram/schedule         # Отложенная публикация
+DELETE /api/telegram/post/{id}      # Удалить пост
+GET  /api/telegram/stats            # Статистика каналов
+```
+
+---
+
+### 4️⃣ **Admin Dashboard** (Панель администратора)
+**Задача:** Управление контентом и системой
+
+**Функционал:**
+- 📊 Dashboard с метриками (новости/день, успешность AI)
+- 📰 Список новостей с фильтрами (статус, категория, источник)
+- ✏️ Редактор новостей (WYSIWYG)
+- ✅ Одобрение/отклонение перед публикацией
+- 🔧 Управление источниками и настройками
+- 📈 Аналитика (просмотры, engagement в Telegram)
+- 🚨 Логи и ошибки
+
+**Аутентификация:**
+- JWT токены (access + refresh)
+- Роли: `admin`, `moderator`, `viewer`
+
+**Endpoints:**
+```
+POST /api/auth/login                # Вход
+POST /api/auth/refresh              # Обновить токен
+GET  /api/admin/news                # Список новостей
+PATCH /api/admin/news/{id}          # Редактировать
+POST /api/admin/news/{id}/approve   # Одобрить
+DELETE /api/admin/news/{id}         # Удалить
+GET  /api/admin/analytics           # Аналитика
+```
+
+---
+
+### 5️⃣ **Public Viewer** (Публичный архив)
+**Задача:** Отображение новостей для пользователей
+
+**Функционал:**
+- 🌐 Главная страница с лентой новостей
+- 🔍 Поиск и фильтрация (дата, категория)
+- 📄 Страница отдельной новости
+- 🏷️ Теги и категории
+- 📱 Адаптивный дизайн (Mobile-first)
+- ⚡ SSR через Next.js (SEO)
+
+**Endpoints:**
+```
+GET  /api/public/news               # Лента новостей (пагинация)
+GET  /api/public/news/{id}          # Детали новости
+GET  /api/public/search             # Поиск
+GET  /api/public/categories         # Категории
+```
+
+---
+
+## 🔄 Data Flow (Поток данных)
+
+### ASCII-диаграмма:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                         Frontend                             │
-│                    (Next.js - Port 3000)                     │
-└──────────────────────┬──────────────────────────────────────┘
-                       │ HTTP/REST
+┌─────────────────┐
+│  NEWS SOURCES   │
+│ (RSS/API/Web)   │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│  COLLECTOR SERVICE      │
+│  (Celery Worker)        │
+│  • Parse RSS            │
+│  • Deduplicate (MD5)    │
+│  • Save to PostgreSQL   │
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│     REDIS QUEUE         │
+│  (Task: analyze_news)   │
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│  AI ANALYZER SERVICE    │
+│  (Celery Worker)        │
+│  • Call OpenRouter      │
+│  • Generate Image       │
+│  • Categorize           │
+│  • Save results         │
+└────────┬────────────────┘
+         │
+         ▼
+    ┌───┴────┐
+    │        │
+    ▼        ▼
+┌────────┐ ┌────────────┐
+│ AUTO?  │ │  MANUAL?   │
+│ Post   │ │  Moderate  │
+└───┬────┘ └─────┬──────┘
+    │            │
+    │            ▼
+    │     ┌──────────────┐
+    │     │ADMIN PANEL   │
+    │     │(Next.js)     │
+    │     │• Approve     │
+    │     │• Edit        │
+    │     └──────┬───────┘
+    │            │
+    ▼            ▼
+┌──────────────────────────┐
+│ TELEGRAM POSTER SERVICE  │
+│ • Format message         │
+│ • Post to channel        │
+│ • Track stats            │
+└────────┬─────────────────┘
+         │
+         ▼
+┌────────────────────┐
+│  TELEGRAM CHANNELS │
+│  @crypto_ainews    │
+│  @kremlin_digest   │
+└────────────────────┘
+
+         │
+         ▼
+┌────────────────────┐
+│  PUBLIC WEBSITE    │
+│  (Next.js SSR)     │
+│  • News archive    │
+│  • Search          │
+└────────────────────┘
+```
+
+### Подробный flow:
+
+1. **Сбор (каждые 5-15 мин):**
+   - Celery Beat → Запуск задачи `collect_news`
+   - Collector Service → Парсинг источников
+   - PostgreSQL → Сохранение `status=pending`
+
+2. **Анализ (асинхронно):**
+   - Webhook/Trigger → Задача `analyze_news` в Redis
+   - AI Analyzer → OpenRouter API (GPT-4)
+   - Freepik API → Генерация изображения
+   - PostgreSQL → Обновление `status=analyzed`
+
+3. **Модерация (если нужно):**
+   - IF `importance > 8` OR `category=politics`:
+     - Telegram Bot → Уведомление админу
+     - Admin Panel → Ожидание одобрения
+   - ELSE:
+     - Автопубликация
+
+4. **Публикация:**
+   - Telegram Poster → Форматирование
+   - Bot API → Постинг в канал
+   - PostgreSQL → `status=published`
+
+5. **Отображение:**
+   - Next.js → SSR рендеринг
+   - Public Viewer → Показ архива
+
+---
+
+## 💻 Tech Stack (Технологии)
+
+### Backend
+- **Language:** Python 3.11
+- **Framework:** FastAPI (async, high performance)
+- **ORM:** SQLAlchemy 2.0 (async mode)
+- **Task Queue:** Celery 5.3 + RabbitMQ
+- **Scheduler:** Celery Beat
+
+### Database & Cache
+- **Primary DB:** PostgreSQL 15 (новости, пользователи, логи)
+- **Cache/Queue:** Redis 7 (Celery broker, кэш запросов)
+- **Search:** PostgreSQL Full-Text Search (или Elasticsearch)
+
+### AI & External APIs
+- **AI Provider:** OpenRouter (`openrouter.ai`)
+  - Models: GPT-4, Claude 3 Opus, Llama 3
+- **Image Generation:** Freepik API (`api.freepik.com`)
+- **News APIs:**
+  - NewsAPI.org
+  - RSS Feeds (feedparser)
+  - Web Scraping (BeautifulSoup4, httpx)
+- **Telegram:** python-telegram-bot
+
+### Frontend
+- **Framework:** Next.js 14 (React 18)
+- **UI Library:** Tailwind CSS + shadcn/ui
+- **State:** React Query (server state) + Zustand (client state)
+- **Forms:** React Hook Form + Zod validation
+
+### DevOps & Infrastructure
+- **Containerization:** Docker + Docker Compose
+- **Orchestration:** Docker Swarm (или Kubernetes если нужно)
+- **Web Server:** Nginx (reverse proxy)
+- **SSL:** Let's Encrypt (Certbot)
+- **CI/CD:** GitHub Actions
+- **Monitoring:** Prometheus + Grafana + Sentry
+- **Logging:** ELK Stack (Elasticsearch, Logstash, Kibana) или Loki
+
+### Security
+- **Secrets:** Environment variables (.env) + Docker secrets
+- **Auth:** JWT (access 15min, refresh 7 days)
+- **Rate Limiting:** Redis-based (10 req/sec per IP)
+- **Input Validation:** Pydantic models
+- **CORS:** Configured for specific origins
+
+---
+
+## 🚀 Deployment (Развертывание на сервере)
+
+### Сервер: **151.241.228.203** (Ubuntu)
+
+### Архитектура развертывания:
+
+```
+                    INTERNET
+                       │
                        ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      API Gateway                             │
-│              (Golang Gin/Echo - Port 8080)                   │
-│    • Routing • Auth Middleware • Rate Limiting               │
-└──┬────────┬─────────┬──────────┬─────────┬─────────────────┘
-   │        │         │          │         │
-   │ gRPC   │ gRPC    │ gRPC     │ gRPC    │ gRPC
-   ▼        ▼         ▼          ▼         ▼
-┌─────┐ ┌──────┐ ┌──────┐ ┌───────┐ ┌──────────┐
-│Auth │ │News  │ │SEO   │ │Admin  │ │Media     │
-│:8081│ │:8082 │ │:8083 │ │:8084  │ │:8085     │
-└──┬──┘ └──┬───┘ └──┬───┘ └───┬───┘ └────┬─────┘
-   │       │        │         │          │
-   └───────┴────────┴─────────┴──────────┘
+              ┌────────────────┐
+              │   Cloudflare   │ (опционально, для DDoS protection)
+              │   DNS Proxy    │
+              └────────┬───────┘
+                       │
+                       ▼
+              ┌────────────────┐
+              │  NGINX (80/443)│
+              │  Reverse Proxy │
+              │  SSL Termination│
+              └────────┬───────┘
+                       │
+           ┌───────────┴───────────┐
+           │                       │
+           ▼                       ▼
+    ┌─────────────┐        ┌─────────────┐
+    │  Frontend   │        │  Backend    │
+    │  Next.js    │        │  FastAPI    │
+    │  Port 3000  │        │  Port 8000  │
+    └─────────────┘        └──────┬──────┘
+                                  │
+                    ┌─────────────┼─────────────┐
+                    │             │             │
+                    ▼             ▼             ▼
+              ┌──────────┐  ┌──────────┐  ┌──────────┐
+              │PostgreSQL│  │  Redis   │  │ RabbitMQ │
+              │Port 5432 │  │Port 6379 │  │Port 5672 │
+              └──────────┘  └──────────┘  └──────────┘
                     │
-        ┌───────────┴──────────────┐
-        ▼                          ▼
-┌──────────────┐          ┌─────────────────┐
-│  PostgreSQL  │          │     Redis       │
-│  (Port 5432) │          │  (Port 6379)    │
-│              │          │  • Cache        │
-│ • Users      │          │  • Sessions     │
-│ • News       │          │  • Rate Limit   │
-│ • Categories │          └─────────────────┘
-│ • Tags       │
-│ • Media      │          ┌─────────────────┐
-└──────────────┘          │   Message Queue │
-                          │  RabbitMQ/NATS  │
-                          │  (Port 5672)    │
-                          └─────────────────┘
+                    ▼
+              ┌──────────┐
+              │  Celery  │
+              │  Workers │
+              └──────────┘
 ```
 
----
+### Шаги развертывания:
 
-## 🏗️ Микросервисы и их ответственность
+#### 1. Подготовка сервера
+```bash
+# SSH подключение
+ssh root@151.241.228.203
 
-### 1. **Auth Service** (Port 8081)
-**Ответственность:**
-- Регистрация и авторизация пользователей
-- Управление JWT токенами (access + refresh)
-- Управление ролями и правами доступа
-- OAuth2 интеграция (Google, Facebook)
+# Обновление системы
+apt update && apt upgrade -y
 
-**Технологии:**
-- JWT для токенов
-- bcrypt для хеширования паролей
-- PostgreSQL для хранения пользователей
-- Redis для хранения refresh токенов и сессий
+# Установка Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sh get-docker.sh
 
----
+# Установка Docker Compose
+apt install docker-compose -y
 
-### 2. **News Service** (Port 8082)
-**Ответственность:**
-- CRUD операции с новостями
-- Управление категориями и тегами
-- Поиск и фильтрация новостей
-- Версионирование статей
-- Публикация/черновики/архив
+# Установка Git
+apt install git -y
 
-**Технологии:**
-- PostgreSQL для хранения новостей
-- Elasticsearch для полнотекстового поиска
-- Redis для кеширования популярных новостей
-
----
-
-### 3. **SEO Service** (Port 8083)
-**Ответственность:**
-- Генерация метатегов (title, description, keywords)
-- Open Graph и Twitter Cards
-- Генерация sitemap.xml
-- Robots.txt управление
-- Структурированные данные (JSON-LD, Schema.org)
-- Канонические URL
-
-**Технологии:**
-- Взаимодействие с News Service через gRPC
-- Кеширование метаданных в Redis
-- Периодическая генерация sitemap
-
----
-
-### 4. **Admin Service** (Port 8084)
-**Ответственность:**
-- Панель модерации контента
-- Управление пользователями и ролями
-- Аналитика и статистика
-- Управление категориями/тегами
-- Логи и аудит действий
-
-**Технологии:**
-- gRPC клиенты для всех сервисов
-- Агрегация данных из разных источников
-- Права доступа через Auth Service
-
----
-
-### 5. **Media Service** (Port 8085)
-**Ответственность:**
-- Загрузка изображений и видео
-- Ресайз и оптимизация изображений
-- Хранение файлов (S3/MinIO)
-- CDN интеграция
-- Генерация превью
-
-**Технологии:**
-- MinIO/S3 для хранения
-- ImageMagick/Sharp для обработки
-- CDN для раздачи статики
-
----
-
-### 6. **API Gateway** (Port 8080)
-**Ответственность:**
-- Единая точка входа для всех клиентов
-- Маршрутизация запросов к микросервисам
-- Аутентификация и авторизация (проверка JWT)
-- Rate limiting и throttling
-- Логирование и мониторинг
-- CORS настройка
-
-**Технологии:**
-- Gin/Echo framework
-- gRPC клиенты для всех сервисов
-- JWT middleware
-- Redis для rate limiting
-
----
-
-## 📁 Файловая структура микросервисов
-
-### Auth Service
-```
-/auth-service
-├── /cmd
-│   └── /auth-service
-│       └── main.go                 # Точка входа
-├── /internal
-│   ├── /config
-│   │   └── config.go               # Конфигурация
-│   ├── /handler
-│   │   ├── grpc_handler.go         # gRPC обработчики
-│   │   └── http_handler.go         # HTTP обработчики (опционально)
-│   ├── /service
-│   │   ├── auth_service.go         # Бизнес-логика аутентификации
-│   │   ├── token_service.go        # Работа с JWT
-│   │   └── user_service.go         # Управление пользователями
-│   ├── /repository
-│   │   ├── user_repository.go      # Работа с БД пользователей
-│   │   └── session_repository.go   # Redis для сессий
-│   ├── /middleware
-│   │   └── auth_middleware.go      # Middleware для проверки токенов
-│   └── /models
-│       ├── user.go                 # Модель пользователя
-│       └── token.go                # Модель токена
-├── /pkg
-│   ├── /jwt
-│   │   └── jwt.go                  # Утилиты для JWT
-│   ├── /hash
-│   │   └── bcrypt.go               # Хеширование паролей
-│   └── /validator
-│       └── validator.go            # Валидация данных
-├── /proto
-│   └── auth.proto                  # gRPC контракты
-├── /migrations
-│   ├── 001_create_users_table.up.sql
-│   └── 001_create_users_table.down.sql
-├── .env
-├── go.mod
-├── go.sum
-├── Dockerfile
-└── README.md
+# Создание пользователя для деплоя
+useradd -m -s /bin/bash newsadmin
+usermod -aG docker newsadmin
 ```
 
----
-
-### News Service
-```
-/news-service
-├── /cmd
-│   └── /news-service
-│       └── main.go
-├── /internal
-│   ├── /config
-│   │   └── config.go
-│   ├── /handler
-│   │   └── grpc_handler.go
-│   ├── /service
-│   │   ├── news_service.go         # CRUD новостей
-│   │   ├── category_service.go     # Управление категориями
-│   │   ├── tag_service.go          # Управление тегами
-│   │   └── search_service.go       # Поиск новостей
-│   ├── /repository
-│   │   ├── news_repository.go
-│   │   ├── category_repository.go
-│   │   └── tag_repository.go
-│   ├── /models
-│   │   ├── news.go
-│   │   ├── category.go
-│   │   └── tag.go
-│   └── /cache
-│       └── redis_cache.go          # Кеширование
-├── /pkg
-│   ├── /slug
-│   │   └── slug.go                 # Генерация slug'ов
-│   └── /pagination
-│       └── pagination.go
-├── /proto
-│   └── news.proto
-├── /migrations
-│   ├── 001_create_news_table.up.sql
-│   ├── 002_create_categories_table.up.sql
-│   └── 003_create_tags_table.up.sql
-├── .env
-├── go.mod
-├── Dockerfile
-└── README.md
+#### 2. Клонирование проекта
+```bash
+su - newsadmin
+git clone https://github.com/glifindor/newsportal.git /home/newsadmin/newshub
+cd /home/newsadmin/newshub
 ```
 
----
-
-### SEO Service
-```
-/seo-service
-├── /cmd
-│   └── /seo-service
-│       └── main.go
-├── /internal
-│   ├── /config
-│   │   └── config.go
-│   ├── /handler
-│   │   └── grpc_handler.go
-│   ├── /service
-│   │   ├── meta_service.go         # Генерация метатегов
-│   │   ├── sitemap_service.go      # Генерация sitemap
-│   │   ├── opengraph_service.go    # Open Graph
-│   │   └── schema_service.go       # Schema.org разметка
-│   ├── /repository
-│   │   └── seo_repository.go
-│   ├── /models
-│   │   ├── meta.go
-│   │   └── sitemap.go
-│   └── /templates
-│       ├── sitemap.xml.tmpl
-│       └── schema.json.tmpl
-├── /pkg
-│   └── /generator
-│       └── meta_generator.go
-├── /proto
-│   └── seo.proto
-├── .env
-├── go.mod
-├── Dockerfile
-└── README.md
+#### 3. Настройка переменных окружения
+```bash
+# Создать .env файл
+nano .env
 ```
 
----
-
-### Admin Service
-```
-/admin-service
-├── /cmd
-│   └── /admin-service
-│       └── main.go
-├── /internal
-│   ├── /config
-│   │   └── config.go
-│   ├── /handler
-│   │   └── grpc_handler.go
-│   ├── /service
-│   │   ├── moderation_service.go   # Модерация контента
-│   │   ├── analytics_service.go    # Аналитика
-│   │   └── audit_service.go        # Логи действий
-│   ├── /repository
-│   │   └── audit_repository.go
-│   ├── /models
-│   │   ├── audit_log.go
-│   │   └── statistics.go
-│   └── /clients
-│       ├── news_client.go          # gRPC клиент для News Service
-│       ├── auth_client.go          # gRPC клиент для Auth Service
-│       └── media_client.go         # gRPC клиент для Media Service
-├── /proto
-│   └── admin.proto
-├── .env
-├── go.mod
-├── Dockerfile
-└── README.md
-```
-
----
-
-### Media Service
-```
-/media-service
-├── /cmd
-│   └── /media-service
-│       └── main.go
-├── /internal
-│   ├── /config
-│   │   └── config.go
-│   ├── /handler
-│   │   └── grpc_handler.go
-│   ├── /service
-│   │   ├── upload_service.go       # Загрузка файлов
-│   │   ├── resize_service.go       # Ресайз изображений
-│   │   └── storage_service.go      # Работа с S3/MinIO
-│   ├── /repository
-│   │   └── media_repository.go
-│   ├── /models
-│   │   └── media.go
-│   └── /processor
-│       └── image_processor.go      # Обработка изображений
-├── /pkg
-│   ├── /s3
-│   │   └── client.go               # S3/MinIO клиент
-│   └── /resize
-│       └── resize.go
-├── /proto
-│   └── media.proto
-├── .env
-├── go.mod
-├── Dockerfile
-└── README.md
-```
-
----
-
-### API Gateway
-```
-/gateway
-├── /cmd
-│   └── /gateway
-│       └── main.go
-├── /internal
-│   ├── /config
-│   │   └── config.go
-│   ├── /handler
-│   │   ├── auth_handler.go         # Проксирование к Auth Service
-│   │   ├── news_handler.go         # Проксирование к News Service
-│   │   ├── seo_handler.go          # Проксирование к SEO Service
-│   │   ├── admin_handler.go        # Проксирование к Admin Service
-│   │   └── media_handler.go        # Проксирование к Media Service
-│   ├── /middleware
-│   │   ├── auth_middleware.go      # JWT проверка
-│   │   ├── rate_limit.go           # Rate limiting
-│   │   ├── cors.go                 # CORS настройки
-│   │   └── logger.go               # Логирование
-│   ├── /router
-│   │   └── router.go               # Настройка маршрутов
-│   └── /clients
-│       ├── auth_client.go          # gRPC клиент
-│       ├── news_client.go
-│       ├── seo_client.go
-│       ├── admin_client.go
-│       └── media_client.go
-├── /pkg
-│   └── /response
-│       └── response.go             # Стандартизированные ответы
-├── .env
-├── go.mod
-├── Dockerfile
-└── README.md
-```
-
----
-
-### Frontend (Next.js)
-```
-/frontend
-├── /src
-│   ├── /app
-│   │   ├── /news
-│   │   │   ├── page.tsx            # Список новостей
-│   │   │   └── /[slug]
-│   │   │       └── page.tsx        # Страница новости
-│   │   ├── /category
-│   │   │   └── /[slug]
-│   │   │       └── page.tsx
-│   │   ├── /admin
-│   │   │   └── page.tsx
-│   │   ├── layout.tsx
-│   │   └── page.tsx
-│   ├── /components
-│   │   ├── /news
-│   │   │   ├── NewsCard.tsx
-│   │   │   └── NewsList.tsx
-│   │   ├── /layout
-│   │   │   ├── Header.tsx
-│   │   │   └── Footer.tsx
-│   │   └── /admin
-│   │       └── AdminPanel.tsx
-│   ├── /lib
-│   │   ├── /api
-│   │   │   ├── auth.ts             # API клиент для Auth
-│   │   │   ├── news.ts             # API клиент для News
-│   │   │   └── media.ts
-│   │   └── /utils
-│   │       ├── jwt.ts
-│   │       └── helpers.ts
-│   └── /types
-│       ├── news.ts
-│       └── user.ts
-├── /public
-│   ├── /images
-│   └── /icons
-├── next.config.js
-├── package.json
-└── tsconfig.json
-```
-
----
-
-## 🔄 Взаимодействие между сервисами
-
-### Протокол взаимодействия
-
-**gRPC** - основной протокол для межсервисного взаимодействия:
-- ✅ Высокая производительность (HTTP/2, protobuf)
-- ✅ Строгая типизация через .proto файлы
-- ✅ Встроенная поддержка streaming
-- ✅ Автогенерация клиентов
-
-**REST/HTTP** - для взаимодействия Gateway с Frontend:
-- ✅ Универсальность
-- ✅ Простота отладки
-- ✅ Кеширование на уровне HTTP
-
-### Схема взаимодействия
-
-```
-Frontend (Next.js)
-    ↓ HTTP/REST (JSON)
-API Gateway (Port 8080)
-    ↓ gRPC (Protobuf)
-[Auth | News | SEO | Admin | Media] Services
-    ↓
-[PostgreSQL | Redis | MinIO]
-```
-
-### Примеры взаимодействия
-
-#### 1. Создание новости
-```
-1. Frontend → Gateway: POST /api/news
-   Headers: Authorization: Bearer <JWT>
-   Body: { title, content, category_id }
-
-2. Gateway → Auth Service (gRPC): ValidateToken(token)
-   Response: { user_id, role }
-
-3. Gateway → News Service (gRPC): CreateNews(user_id, news_data)
-   Response: { news_id, slug }
-
-4. Gateway → SEO Service (gRPC): GenerateMeta(news_id)
-   Response: { meta_tags, og_tags }
-
-5. Gateway → Frontend: { success: true, news_id, slug }
-```
-
-#### 2. Получение новости с SEO
-```
-1. Frontend → Gateway: GET /api/news/[slug]
-
-2. Gateway → News Service (gRPC): GetNewsBySlug(slug)
-   Response: { news_data }
-
-3. Gateway → SEO Service (gRPC): GetMeta(news_id)
-   Response: { meta, og, schema }
-
-4. Gateway → Frontend: { news, seo }
-```
-
----
-
-## 🔐 Аутентификация и авторизация
-
-### JWT Token Flow
-
-```
-┌──────────┐                          ┌──────────┐
-│ Frontend │                          │ Gateway  │
-└────┬─────┘                          └────┬─────┘
-     │                                     │
-     │ POST /api/auth/login                │
-     │ { email, password }                 │
-     │────────────────────────────────────>│
-     │                                     │ ValidateCredentials(email, password)
-     │                                     │──────────────────────┐
-     │                                     │                      │
-     │                                     │<─────────────────────┘
-     │                                     │
-     │ { access_token, refresh_token }     │
-     │<────────────────────────────────────│
-     │                                     │
-     │ GET /api/news (protected)           │
-     │ Authorization: Bearer <access>      │
-     │────────────────────────────────────>│
-     │                                     │ ValidateToken(access_token)
-     │                                     │──────────────────────┐
-     │                                     │                      │
-     │                                     │<─────────────────────┘
-     │                                     │
-     │              { news_data }          │
-     │<────────────────────────────────────│
-```
-
-### JWT Структура
-
-**Access Token** (15 минут):
-```json
-{
-  "user_id": "uuid",
-  "email": "user@example.com",
-  "role": "editor",
-  "permissions": ["create_news", "edit_news"],
-  "exp": 1234567890,
-  "iat": 1234567000
-}
-```
-
-**Refresh Token** (7 дней):
-- Хранится в Redis с TTL
-- Используется для обновления access token
-
-### Роли и права
-
-```go
-// Roles
-const (
-    RoleAdmin     = "admin"      // Полный доступ
-    RoleEditor    = "editor"     // Создание/редактирование новостей
-    RoleModerator = "moderator"  // Модерация контента
-    RoleUser      = "user"       // Чтение, комментарии
-)
-
-// Permissions
-const (
-    PermCreateNews   = "create_news"
-    PermEditNews     = "edit_news"
-    PermDeleteNews   = "delete_news"
-    PermModerate     = "moderate"
-    PermManageUsers  = "manage_users"
-)
-```
-
----
-
-## 🌐 Service Discovery
-
-### Consul-based Discovery
-
-```go
-// Регистрация сервиса в Consul
-func RegisterService(consul *api.Client, serviceName string, port int) error {
-    registration := &api.AgentServiceRegistration{
-        ID:      fmt.Sprintf("%s-%s", serviceName, uuid.New()),
-        Name:    serviceName,
-        Port:    port,
-        Address: getLocalIP(),
-        Check: &api.AgentServiceCheck{
-            HTTP:     fmt.Sprintf("http://%s:%d/health", getLocalIP(), port),
-            Interval: "10s",
-            Timeout:  "3s",
-        },
-    }
-    return consul.Agent().ServiceRegister(registration)
-}
-
-// Обнаружение сервиса
-func DiscoverService(consul *api.Client, serviceName string) (string, error) {
-    services, _, err := consul.Health().Service(serviceName, "", true, nil)
-    if err != nil || len(services) == 0 {
-        return "", err
-    }
-    
-    // Load balancing - random selection
-    service := services[rand.Intn(len(services))]
-    return fmt.Sprintf("%s:%d", service.Service.Address, service.Service.Port), nil
-}
-```
-
-### Альтернатива: Static Configuration
-
-```yaml
-# gateway/config.yaml
-services:
-  auth:
-    host: auth-service
-    port: 8081
-  news:
-    host: news-service
-    port: 8082
-  seo:
-    host: seo-service
-    port: 8083
-  admin:
-    host: admin-service
-    port: 8084
-  media:
-    host: media-service
-    port: 8085
-```
-
----
-
-## 🚦 API Gateway - Маршрутизация
-
-### Структура маршрутов
-
-```go
-// internal/router/router.go
-func SetupRoutes(r *gin.Engine, clients *Clients) {
-    // Public routes
-    public := r.Group("/api")
-    {
-        // Auth
-        public.POST("/auth/register", handlers.Register(clients.Auth))
-        public.POST("/auth/login", handlers.Login(clients.Auth))
-        public.POST("/auth/refresh", handlers.RefreshToken(clients.Auth))
-        
-        // News (public)
-        public.GET("/news", handlers.GetNews(clients.News))
-        public.GET("/news/:slug", handlers.GetNewsBySlug(clients.News))
-        public.GET("/categories", handlers.GetCategories(clients.News))
-        
-        // SEO
-        public.GET("/sitemap.xml", handlers.GetSitemap(clients.SEO))
-        public.GET("/robots.txt", handlers.GetRobots(clients.SEO))
-    }
-    
-    // Protected routes (JWT required)
-    protected := r.Group("/api")
-    protected.Use(middleware.AuthMiddleware(clients.Auth))
-    {
-        // News management
-        protected.POST("/news", middleware.RequireRole("editor"), 
-            handlers.CreateNews(clients.News))
-        protected.PUT("/news/:id", middleware.RequireRole("editor"),
-            handlers.UpdateNews(clients.News))
-        protected.DELETE("/news/:id", middleware.RequireRole("admin"),
-            handlers.DeleteNews(clients.News))
-        
-        // Media
-        protected.POST("/media/upload", handlers.UploadMedia(clients.Media))
-    }
-    
-    // Admin routes
-    admin := r.Group("/api/admin")
-    admin.Use(middleware.AuthMiddleware(clients.Auth))
-    admin.Use(middleware.RequireRole("admin", "moderator"))
-    {
-        admin.GET("/users", handlers.GetUsers(clients.Admin))
-        admin.GET("/statistics", handlers.GetStatistics(clients.Admin))
-        admin.POST("/moderate/:id", handlers.ModerateContent(clients.Admin))
-    }
-}
-```
-
-### Rate Limiting
-
-```go
-// internal/middleware/rate_limit.go
-func RateLimitMiddleware(redis *redis.Client) gin.HandlerFunc {
-    return func(c *gin.Context) {
-        ip := c.ClientIP()
-        key := fmt.Sprintf("rate_limit:%s", ip)
-        
-        count, err := redis.Incr(ctx, key).Result()
-        if err != nil {
-            c.AbortWithStatus(500)
-            return
-        }
-        
-        if count == 1 {
-            redis.Expire(ctx, key, time.Minute)
-        }
-        
-        // 100 запросов в минуту
-        if count > 100 {
-            c.JSON(429, gin.H{"error": "Too many requests"})
-            c.Abort()
-            return
-        }
-        
-        c.Next()
-    }
-}
-```
-
----
-
-## 📊 Порты сервисов
-
-| Сервис          | HTTP Port | gRPC Port | Описание                    |
-|-----------------|-----------|-----------|----------------------------|
-| Frontend        | 3000      | -         | Next.js приложение         |
-| API Gateway     | 8080      | -         | REST API точка входа       |
-| Auth Service    | -         | 8081      | Аутентификация             |
-| News Service    | -         | 8082      | Управление новостями       |
-| SEO Service     | -         | 8083      | SEO метаданные             |
-| Admin Service   | -         | 8084      | Админ-панель               |
-| Media Service   | -         | 8085      | Медиа файлы                |
-| PostgreSQL      | 5432      | -         | База данных                |
-| Redis           | 6379      | -         | Кеш и сессии               |
-| RabbitMQ        | 5672/15672| -         | Очередь сообщений          |
-| Consul          | 8500      | -         | Service Discovery          |
-| MinIO           | 9000/9001 | -         | S3-совместимое хранилище   |
-
----
-
-## 🔧 Конфигурация сервисов
-
-### Пример .env для Auth Service
-
+**Пример .env:**
 ```env
-# Server
-SERVICE_NAME=auth-service
-GRPC_PORT=8081
-HTTP_PORT=8091
-
 # Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=password
-DB_NAME=auth_db
-DB_SSL_MODE=disable
+POSTGRES_USER=newsadmin
+POSTGRES_PASSWORD=SUPER_SECRET_PASSWORD_123
+POSTGRES_DB=newshub_db
+DATABASE_URL=postgresql+asyncpg://newsadmin:SUPER_SECRET_PASSWORD_123@postgres:5432/newshub_db
 
 # Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
-REDIS_DB=0
+REDIS_URL=redis://redis:6379/0
+
+# RabbitMQ
+RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
 
 # JWT
-JWT_SECRET=your-secret-key-change-in-production
-JWT_ACCESS_EXPIRY=15m
-JWT_REFRESH_EXPIRY=168h
+JWT_SECRET_KEY=YOUR_SECRET_KEY_CHANGE_THIS_TO_RANDOM_STRING
+JWT_ALGORITHM=HS256
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
+JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
 
-# Service Discovery
-CONSUL_HOST=localhost
-CONSUL_PORT=8500
+# OpenRouter API
+OPENROUTER_API_KEY=sk-or-v1-YOUR_API_KEY
+OPENROUTER_API_URL=https://openrouter.ai/api/v1
 
-# Logging
-LOG_LEVEL=debug
-LOG_FORMAT=json
+# Freepik API
+FREEPIK_API_KEY=YOUR_FREEPIK_API_KEY
+
+# NewsAPI
+NEWSAPI_KEY=YOUR_NEWSAPI_KEY
+
+# Telegram Bot
+TELEGRAM_BOT_TOKEN=YOUR_BOT_TOKEN
+TELEGRAM_CRYPTO_CHANNEL=@crypto_ainews
+TELEGRAM_POLITICS_CHANNEL=@kremlin_digest
+TELEGRAM_ADMIN_CHAT_ID=YOUR_ADMIN_CHAT_ID
+
+# Frontend
+NEXT_PUBLIC_API_URL=https://151.241.228.203/api
+
+# Environment
+ENVIRONMENT=production
+DEBUG=False
 ```
 
----
-
-## 🐳 Docker Compose
-
-```yaml
-version: '3.8'
-
-services:
-  # Databases
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: news_portal
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-
-  # Message Queue
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: password
-
-  # Service Discovery
-  consul:
-    image: consul:latest
-    ports:
-      - "8500:8500"
-    command: agent -server -ui -bootstrap-expect=1 -client=0.0.0.0
-
-  # Storage
-  minio:
-    image: minio/minio
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: password123
-    command: server /data --console-address ":9001"
-    volumes:
-      - minio_data:/data
-
-  # Microservices
-  auth-service:
-    build: ./auth-service
-    ports:
-      - "8081:8081"
-    depends_on:
-      - postgres
-      - redis
-      - consul
-    environment:
-      DB_HOST: postgres
-      REDIS_HOST: redis
-      CONSUL_HOST: consul
-
-  news-service:
-    build: ./news-service
-    ports:
-      - "8082:8082"
-    depends_on:
-      - postgres
-      - redis
-      - consul
-    environment:
-      DB_HOST: postgres
-      REDIS_HOST: redis
-      CONSUL_HOST: consul
-
-  seo-service:
-    build: ./seo-service
-    ports:
-      - "8083:8083"
-    depends_on:
-      - postgres
-      - redis
-      - consul
-    environment:
-      DB_HOST: postgres
-      REDIS_HOST: redis
-      CONSUL_HOST: consul
-
-  admin-service:
-    build: ./admin-service
-    ports:
-      - "8084:8084"
-    depends_on:
-      - consul
-    environment:
-      CONSUL_HOST: consul
-
-  media-service:
-    build: ./media-service
-    ports:
-      - "8085:8085"
-    depends_on:
-      - postgres
-      - minio
-      - consul
-    environment:
-      DB_HOST: postgres
-      MINIO_HOST: minio
-      CONSUL_HOST: consul
-
-  gateway:
-    build: ./gateway
-    ports:
-      - "8080:8080"
-    depends_on:
-      - auth-service
-      - news-service
-      - seo-service
-      - admin-service
-      - media-service
-      - consul
-    environment:
-      CONSUL_HOST: consul
-      REDIS_HOST: redis
-
-  frontend:
-    build: ./frontend
-    ports:
-      - "3000:3000"
-    depends_on:
-      - gateway
-    environment:
-      NEXT_PUBLIC_API_URL: http://gateway:8080
-
-volumes:
-  postgres_data:
-  redis_data:
-  minio_data:
-```
-
----
-
-## 📈 Масштабирование
-
-### Горизонтальное масштабирование
-
-**Stateless сервисы** (легко масштабируются):
+#### 4. Docker Compose конфигурация
 ```bash
-# Запуск нескольких экземпляров
-docker-compose up --scale news-service=3 --scale auth-service=2
+nano docker-compose.yml
 ```
 
-**Балансировка нагрузки:**
-- Consul автоматически регистрирует все инстансы
-- Gateway использует round-robin или random selection
-- Health checks отсеивают неработающие инстансы
+**docker-compose.yml** (см. отдельный файл в проекте)
 
-### Кеширование
+#### 5. SSL сертификат (Let's Encrypt)
+```bash
+# Установка Certbot
+apt install certbot python3-certbot-nginx -y
 
-**Redis кеширование на разных уровнях:**
+# Получение сертификата (ЗАМЕНИТЕ на ваш домен или используйте IP)
+certbot certonly --standalone -d newshub.example.com
 
-```go
-// News Service - кеш популярных новостей
-func (s *NewsService) GetNews(ctx context.Context, id string) (*News, error) {
-    // Проверяем кеш
-    cached, err := s.cache.Get(ctx, fmt.Sprintf("news:%s", id))
-    if err == nil {
-        return unmarshal(cached), nil
-    }
+# Или для IP (без домена, self-signed):
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout /etc/ssl/private/nginx-selfsigned.key \
+  -out /etc/ssl/certs/nginx-selfsigned.crt
+```
+
+#### 6. Запуск проекта
+```bash
+# Сборка и запуск
+docker-compose up -d --build
+
+# Проверка статуса
+docker-compose ps
+
+# Логи
+docker-compose logs -f
+
+# Миграции БД
+docker-compose exec backend alembic upgrade head
+
+# Создание суперпользователя
+docker-compose exec backend python scripts/create_admin.py
+```
+
+#### 7. Nginx конфигурация
+```bash
+nano /etc/nginx/sites-available/newshub
+```
+
+**Пример конфигурации** (см. отдельный файл)
+
+```bash
+# Активация конфигурации
+ln -s /etc/nginx/sites-available/newshub /etc/nginx/sites-enabled/
+nginx -t
+systemctl reload nginx
+```
+
+#### 8. Мониторинг и логи
+```bash
+# Prometheus (порт 9090)
+docker-compose exec prometheus
+
+# Grafana (порт 3001)
+# Login: admin / admin (сменить при первом входе)
+
+# Логи Celery
+docker-compose logs -f celery_worker
+
+# Логи Backend
+docker-compose logs -f backend
+```
+
+---
+
+## 📊 Database Schema (Схема БД)
+
+### Таблицы:
+
+#### 1. `news_sources` (Источники новостей)
+```sql
+CREATE TABLE news_sources (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(50) NOT NULL, -- 'rss', 'api', 'scraping'
+    url TEXT NOT NULL,
+    category VARCHAR(50), -- 'crypto', 'politics', 'it', 'world'
+    is_active BOOLEAN DEFAULT true,
+    last_fetched_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+#### 2. `news_items` (Новости)
+```sql
+CREATE TABLE news_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    source_id INTEGER REFERENCES news_sources(id),
     
-    // Запрос к БД
-    news, err := s.repo.GetByID(ctx, id)
-    if err != nil {
-        return nil, err
-    }
+    -- Контент
+    title VARCHAR(500) NOT NULL,
+    content TEXT NOT NULL,
+    summary TEXT, -- AI-generated
+    url TEXT NOT NULL UNIQUE,
+    image_url TEXT,
+    author VARCHAR(255),
     
-    // Кешируем на 5 минут
-    s.cache.Set(ctx, fmt.Sprintf("news:%s", id), news, 5*time.Minute)
-    return news, nil
-}
-```
-
-**CDN для статики:**
-- Изображения раздаются через CloudFlare/CloudFront
-- Media Service генерирует signed URLs
-
-### Database Sharding
-
-**По категориям/регионам:**
-```
-DB1: Политика, Экономика
-DB2: Спорт, Культура
-DB3: Технологии, Наука
-```
-
-**По времени:**
-```
-DB1: Новости текущего года
-DB2: Архив прошлых лет
-```
-
-### Message Queue для асинхронных задач
-
-```go
-// Отправка email уведомлений
-func (s *NewsService) PublishNews(news *News) error {
-    // Сохраняем новость
-    err := s.repo.Save(news)
-    if err != nil {
-        return err
-    }
+    -- Метаданные
+    category VARCHAR(50), -- 'crypto', 'politics', 'it', 'world'
+    tags TEXT[], -- ['bitcoin', 'regulation', 'usa']
+    language VARCHAR(10) DEFAULT 'ru',
     
-    // Отправляем событие в очередь
-    event := Event{
-        Type: "news.published",
-        Data: news,
-    }
-    return s.queue.Publish("notifications", event)
-}
-
-// Воркер обрабатывает события
-func (w *NotificationWorker) ProcessEvents() {
-    msgs := w.queue.Consume("notifications")
+    -- AI-анализ
+    ai_summary TEXT,
+    ai_insights TEXT,
+    sentiment VARCHAR(20), -- 'positive', 'negative', 'neutral'
+    importance_score INTEGER CHECK (importance_score BETWEEN 1 AND 10),
     
-    for msg := range msgs {
-        switch msg.Type {
-        case "news.published":
-            w.sendEmailNotifications(msg.Data)
-        }
-    }
-}
+    -- Статус
+    status VARCHAR(50) DEFAULT 'pending', -- 'pending', 'analyzed', 'approved', 'published', 'rejected'
+    requires_moderation BOOLEAN DEFAULT false,
+    
+    -- Публикация
+    published_at TIMESTAMP,
+    telegram_message_id INTEGER,
+    telegram_channel VARCHAR(100),
+    
+    -- Дедупликация
+    content_hash VARCHAR(64) UNIQUE,
+    
+    -- Timestamps
+    source_published_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_news_status ON news_items(status);
+CREATE INDEX idx_news_category ON news_items(category);
+CREATE INDEX idx_news_published ON news_items(published_at DESC);
+CREATE INDEX idx_news_hash ON news_items(content_hash);
 ```
 
-### Monitoring & Observability
+#### 3. `users` (Пользователи/Админы)
+```sql
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    hashed_password VARCHAR(255) NOT NULL,
+    role VARCHAR(50) DEFAULT 'moderator', -- 'admin', 'moderator', 'viewer'
+    is_active BOOLEAN DEFAULT true,
+    telegram_chat_id BIGINT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
 
-**Prometheus + Grafana:**
-```go
-// Метрики
-var (
-    httpRequestsTotal = prometheus.NewCounterVec(
-        prometheus.CounterOpts{
-            Name: "http_requests_total",
-            Help: "Total HTTP requests",
-        },
-        []string{"service", "method", "status"},
-    )
+#### 4. `telegram_posts` (История постов в Telegram)
+```sql
+CREATE TABLE telegram_posts (
+    id SERIAL PRIMARY KEY,
+    news_item_id UUID REFERENCES news_items(id),
+    channel VARCHAR(100) NOT NULL,
+    message_id BIGINT NOT NULL,
+    views_count INTEGER DEFAULT 0,
+    posted_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+#### 5. `ai_tasks` (Задачи AI-обработки)
+```sql
+CREATE TABLE ai_tasks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    news_item_id UUID REFERENCES news_items(id),
+    task_type VARCHAR(50), -- 'analyze', 'generate_image', 'summarize'
+    status VARCHAR(50) DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
+    provider VARCHAR(50), -- 'openrouter', 'freepik'
+    model VARCHAR(100),
+    input_data JSONB,
+    output_data JSONB,
+    error_message TEXT,
+    processing_time_ms INTEGER,
+    cost_usd NUMERIC(10, 6),
+    created_at TIMESTAMP DEFAULT NOW(),
+    completed_at TIMESTAMP
+);
+```
+
+#### 6. `system_logs` (Системные логи)
+```sql
+CREATE TABLE system_logs (
+    id SERIAL PRIMARY KEY,
+    level VARCHAR(20), -- 'info', 'warning', 'error', 'critical'
+    service VARCHAR(100), -- 'collector', 'ai_analyzer', 'telegram_poster'
+    message TEXT,
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+---
+
+## 🔒 Security (Безопасность)
+
+### 1. API Keys & Secrets
+- ✅ Все ключи в `.env` файле (не коммитить в Git!)
+- ✅ Docker secrets для production
+- ✅ Ротация ключей каждые 90 дней
+
+### 2. Аутентификация
+- ✅ JWT токены (HMAC SHA-256)
+- ✅ Access token (15 мин) + Refresh token (7 дней)
+- ✅ Хэширование паролей (bcrypt)
+- ✅ Rate limiting: 10 запросов/сек на IP
+
+### 3. Защита от дубликатов
+```python
+import hashlib
+
+def calculate_content_hash(title: str, content: str) -> str:
+    """Хэш для дедупликации"""
+    combined = f"{title}|{content}".encode('utf-8')
+    return hashlib.md5(combined).hexdigest()
+```
+
+### 4. Валидация входных данных
+```python
+from pydantic import BaseModel, HttpUrl, validator
+
+class NewsCreate(BaseModel):
+    title: str
+    content: str
+    url: HttpUrl
     
-    httpRequestDuration = prometheus.NewHistogramVec(
-        prometheus.HistogramOpts{
-            Name: "http_request_duration_seconds",
-            Help: "HTTP request duration",
-        },
-        []string{"service", "method"},
-    )
+    @validator('title')
+    def title_length(cls, v):
+        if len(v) < 10 or len(v) > 500:
+            raise ValueError('Title must be 10-500 chars')
+        return v
+```
+
+### 5. CORS Configuration
+```python
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://151.241.228.203", "https://newshub.example.com"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["*"],
 )
 ```
 
-**Distributed Tracing (Jaeger):**
-```go
-import "go.opentelemetry.io/otel"
+---
 
-// Трейсинг запросов между сервисами
-func (h *Handler) CreateNews(ctx context.Context, req *pb.CreateNewsRequest) {
-    ctx, span := otel.Tracer("news-service").Start(ctx, "CreateNews")
-    defer span.End()
-    
-    // Вызов других сервисов сохраняет trace context
-    meta, err := h.seoClient.GenerateMeta(ctx, newsID)
-}
+## ⚠️ Risks & Mitigation (Риски и решения)
+
+### 1. **Rate Limits внешних API**
+**Риск:** OpenRouter, NewsAPI, Telegram имеют лимиты запросов
+
+**Mitigation:**
+- Redis-кэш для повторных запросов (TTL: 1 час)
+- Exponential backoff при ошибках
+- Приоритизация новостей (важные первыми)
+- Fallback на альтернативные AI-модели
+
+```python
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
+async def call_openrouter_with_retry(prompt: str):
+    # ...
 ```
 
----
+### 2. **Стоимость AI-анализа**
+**Риск:** GPT-4 дорогой (~$30/1M tokens)
 
-## 🔒 Безопасность
+**Mitigation:**
+- Использовать Claude 3 Haiku (дешевле) для простых задач
+- Кэшировать AI-ответы
+- Batch processing (анализ пакетами)
+- Мониторинг бюджета (alert при >$100/день)
 
-### 1. **API Gateway защита**
-- JWT валидация на каждом запросе
-- Rate limiting (100 req/min per IP)
-- CORS настройки
-- Input validation
+### 3. **Спам/низкокачественный контент**
+**Риск:** Источники могут публиковать мусор
 
-### 2. **Межсервисное взаимодействие**
-- mTLS для gRPC (опционально)
-- Service mesh (Istio/Linkerd)
-- API keys для сервисов
+**Mitigation:**
+- AI-фильтрация (importance_score < 4 отбрасывать)
+- Whitelist проверенных источников
+- Модерация для новых источников
+- Блэклист доменов
 
-### 3. **Database Security**
-- Prepared statements (защита от SQL injection)
-- Least privilege principle
-- Encrypted connections
+### 4. **Падение сервера/компонентов**
+**Риск:** PostgreSQL/Redis/RabbitMQ может упасть
 
-### 4. **Secrets Management**
-- HashiCorp Vault для хранения секретов
-- Environment variables через Docker secrets
-
----
-
-## 🚀 Деплой и CI/CD
-
-### GitHub Actions Pipeline
+**Mitigation:**
+- Docker healthchecks + автоперезапуск
+- Backup БД каждые 6 часов (pg_dump)
+- Redis persistence (AOF)
+- Prometheus alerts (CPU > 80%, RAM > 90%)
 
 ```yaml
-name: Deploy Microservices
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        service: [auth-service, news-service, seo-service, admin-service, media-service, gateway]
-    
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Build Docker image
-        run: |
-          docker build -t ${{ secrets.DOCKER_REGISTRY }}/${{ matrix.service }}:${{ github.sha }} ./${{ matrix.service }}
-      
-      - name: Push to registry
-        run: |
-          docker push ${{ secrets.DOCKER_REGISTRY }}/${{ matrix.service }}:${{ github.sha }}
-      
-      - name: Deploy to Kubernetes
-        run: |
-          kubectl set image deployment/${{ matrix.service }} \
-            ${{ matrix.service }}=${{ secrets.DOCKER_REGISTRY }}/${{ matrix.service }}:${{ github.sha }}
+# docker-compose.yml
+services:
+  postgres:
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 ```
 
-### Kubernetes Deployment
+### 5. **Безопасность Telegram Bot**
+**Риск:** Утечка токена → контроль над каналом
 
-```yaml
-# news-service-deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: news-service
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: news-service
-  template:
-    metadata:
-      labels:
-        app: news-service
-    spec:
-      containers:
-      - name: news-service
-        image: registry/news-service:latest
-        ports:
-        - containerPort: 8082
-        env:
-        - name: DB_HOST
-          value: postgres-service
-        - name: REDIS_HOST
-          value: redis-service
-        resources:
-          requests:
-            memory: "128Mi"
-            cpu: "100m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
-        livenessProbe:
-          grpc:
-            port: 8082
-          initialDelaySeconds: 10
-          periodSeconds: 10
+**Mitigation:**
+- Токен в Docker secrets (не в коде!)
+- Webhook вместо polling (safer)
+- IP whitelist для webhook endpoint
+- 2FA для Telegram-аккаунта админа
+
+### 6. **SEO и индексация**
+**Риск:** Публичный сайт не индексируется Google
+
+**Mitigation:**
+- Next.js SSR (Server-Side Rendering)
+- Sitemap.xml и robots.txt
+- Open Graph tags для соцсетей
+- Canonical URLs
+
+### 7. **Дублирование новостей в каналах**
+**Риск:** Одна новость может подойти под обе категории
+
+**Mitigation:**
+- Жесткая категоризация (crypto OR politics, не AND)
+- AI-проверка: "В какой канал больше подходит?"
+- Флаг `telegram_channel` в БД (уникальность)
+
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: news-service
-spec:
-  selector:
-    app: news-service
-  ports:
-  - port: 8082
-    targetPort: 8082
-  type: ClusterIP
+
+## 📈 Scaling Strategy (Масштабирование)
+
+### Этап 1: Одиночный сервер (текущий)
+- 1000 новостей/день ✅
+- 1 Backend instance
+- 1 PostgreSQL
+- 2-4 Celery workers
+
+### Этап 2: Горизонтальное масштабирование (>5000 новостей/день)
+- Load Balancer (Nginx)
+- 3+ Backend replicas
+- PostgreSQL Primary + Read Replicas
+- 10+ Celery workers
+- Redis Cluster
+
+### Этап 3: Микросервисы (>50k новостей/день)
+- Separate services: Collector, Analyzer, Poster
+- Kubernetes orchestration
+- Message Queue (Kafka вместо RabbitMQ)
+- Elasticsearch для поиска
+- CDN (Cloudflare) для статики
+
+---
+
+## 🧪 Testing Strategy (Тестирование)
+
+### 1. Unit Tests
+```bash
+pytest tests/unit/
 ```
+- Тесты функций парсинга
+- Валидация Pydantic-моделей
+- Хэширование контента
+
+### 2. Integration Tests
+```bash
+pytest tests/integration/
+```
+- API endpoints (FastAPI TestClient)
+- Database operations (SQLAlchemy)
+- Celery tasks
+
+### 3. E2E Tests
+```bash
+playwright test
+```
+- Админ-панель (логин, создание/редактирование новостей)
+- Публичный сайт (навигация, поиск)
+
+### 4. Load Testing
+```bash
+locust -f tests/load/locustfile.py
+```
+- Симуляция 1000 одновременных запросов
 
 ---
 
-## 📝 Итоги архитектуры
+## 📝 API Documentation (Swagger)
 
-### Преимущества микросервисной архитектуры
-
-✅ **Независимое развертывание** - каждый сервис деплоится отдельно  
-✅ **Масштабируемость** - масштабируем только нужные сервисы  
-✅ **Технологическая гибкость** - можем использовать разные технологии  
-✅ **Отказоустойчивость** - падение одного сервиса не ломает всю систему  
-✅ **Командная автономия** - разные команды работают над разными сервисами  
-
-### Компромиссы
-
-⚠️ **Сложность инфраструктуры** - требуется DevOps экспертиза  
-⚠️ **Распределенные транзакции** - сложнее обеспечить ACID  
-⚠️ **Latency** - межсервисное взаимодействие добавляет задержки  
-⚠️ **Debugging** - сложнее отследить проблему по всей цепочке  
+FastAPI автоматически генерирует документацию:
+- **Swagger UI:** `http://151.241.228.203:8000/docs`
+- **ReDoc:** `http://151.241.228.203:8000/redoc`
+- **OpenAPI JSON:** `http://151.241.228.203:8000/openapi.json`
 
 ---
 
-## 🎯 Следующие шаги
+## 🔧 Maintenance (Обслуживание)
 
-1. **Генерация proto файлов** для gRPC контрактов
-2. **Настройка CI/CD** пайплайна
-3. **Реализация базовых CRUD** операций
-4. **Интеграция мониторинга** (Prometheus, Grafana, Jaeger)
-5. **Написание интеграционных тестов**
-6. **Настройка Kubernetes** для production
-7. **Документация API** (Swagger/OpenAPI)
+### Ежедневно:
+- ✅ Проверка логов ошибок (Sentry dashboard)
+- ✅ Мониторинг Grafana (CPU, RAM, disk)
+
+### Еженедельно:
+- ✅ Обзор AI costs (OpenRouter billing)
+- ✅ Анализ engagement в Telegram
+- ✅ Ротация логов (логи старше 30 дней удалять)
+
+### Ежемесячно:
+- ✅ Backup БД (скачать на локальный ПК)
+- ✅ Обновление зависимостей (`pip-audit`, `npm audit`)
+- ✅ Ревью источников новостей (удалить неактивные)
 
 ---
 
-**Автор:** GitHub Copilot  
-**Дата:** 2025-10-14  
-**Версия:** 1.0
+## 📞 Support & Contacts
+
+- **GitHub Repo:** https://github.com/glifindor/newsportal
+- **Telegram Admin:** @your_admin_username
+- **Server IP:** 151.241.228.203
+
+---
+
+## 🎯 Roadmap (Будущие фичи)
+
+### Q1 2025:
+- ✅ Запуск MVP (сбор + постинг в Telegram)
+- ✅ Админ-панель
+- ✅ Публичный сайт
+
+### Q2 2025:
+- 🔄 Мобильное приложение (Flutter)
+- 🔄 Голосовые новости (TTS + Podcast)
+- 🔄 Интеграция с Twitter/X для постинга
+
+### Q3 2025:
+- 🔄 Sentiment trading bot (покупка крипты на основе новостей)
+- 🔄 Пользовательские подписки (email-рассылка)
+- 🔄 Multi-язык (EN, RU, CN)
+
+---
+
+## 📄 License
+
+MIT License - свободное использование
+
+---
+
+**Автор документа:** AI Architect  
+**Дата:** 2025-01-18  
+**Версия:** 1.0.0

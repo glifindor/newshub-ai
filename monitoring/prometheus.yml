@@ -3,42 +3,23 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
-  # API Gateway
-  - job_name: 'gateway'
+  # Backend metrics
+  - job_name: 'backend'
     static_configs:
-      - targets: ['gateway:8080']
+      - targets: ['backend:8000']
+    metrics_path: '/metrics'
 
-  # Auth Service
-  - job_name: 'auth-service'
-    static_configs:
-      - targets: ['auth-service:8081']
-
-  # News Service
-  - job_name: 'news-service'
-    static_configs:
-      - targets: ['news-service:8082']
-
-  # SEO Service
-  - job_name: 'seo-service'
-    static_configs:
-      - targets: ['seo-service:8083']
-
-  # Admin Service
-  - job_name: 'admin-service'
-    static_configs:
-      - targets: ['admin-service:8084']
-
-  # Media Service
-  - job_name: 'media-service'
-    static_configs:
-      - targets: ['media-service:8085']
-
-  # PostgreSQL
+  # PostgreSQL metrics (requires postgres_exporter)
   - job_name: 'postgres'
     static_configs:
       - targets: ['postgres:5432']
 
-  # Redis
+  # Redis metrics (requires redis_exporter)
   - job_name: 'redis'
     static_configs:
       - targets: ['redis:6379']
+
+  # Node exporter (system metrics)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']

@@ -1,35 +1,19 @@
-FROM node:20-alpine AS builder
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy package files
+# Копирование package.json
 COPY package*.json ./
 
-# Install dependencies
+# Установка зависимостей
 RUN npm ci
 
-# Copy source code
+# Копирование исходников
 COPY . .
 
-# Build Next.js app
+# Сборка приложения
 RUN npm run build
 
-# Production image
-FROM node:20-alpine AS runner
-
-WORKDIR /app
-
-ENV NODE_ENV production
-
-# Copy built files
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-
-# Expose port
 EXPOSE 3000
 
-ENV PORT 3000
-
-# Run
-CMD ["node", "server.js"]
+CMD ["npm", "start"]

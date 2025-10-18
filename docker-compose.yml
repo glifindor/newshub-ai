@@ -1,330 +1,234 @@
 version: '3.8'
 
 services:
-  # ========== Databases & Storage ==========
+  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: news-postgres
+    container_name: newshub_postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: news_portal
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-newsadmin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme123}
+      POSTGRES_DB: ${POSTGRES_DB:-newshub_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - news-network
+    ports:
+      - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-newsadmin}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+    networks:
+      - newshub_network
 
+  # Redis Cache & Queue
   redis:
     image: redis:7-alpine
-    container_name: news-redis
-    ports:
-      - "6379:6379"
+    container_name: newshub_redis
+    command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
-    networks:
-      - news-network
+    ports:
+      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
-
-  minio:
-    image: minio/minio:latest
-    container_name: news-minio
-    environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: password123
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_data:/data
-    command: server /data --console-address ":9001"
+    restart: unless-stopped
     networks:
-      - news-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
+      - newshub_network
 
-  # ========== Message Queue ==========
+  # RabbitMQ Message Broker
   rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: news-rabbitmq
+    image: rabbitmq:3.12-management-alpine
+    container_name: newshub_rabbitmq
     environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: password
-    ports:
-      - "5672:5672"
-      - "15672:15672"
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
-    networks:
-      - news-network
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 30s
       timeout: 10s
       retries: 5
-
-  # ========== Service Discovery ==========
-  consul:
-    image: consul:latest
-    container_name: news-consul
-    ports:
-      - "8500:8500"
-      - "8600:8600/udp"
-    command: agent -server -ui -bootstrap-expect=1 -client=0.0.0.0
+    restart: unless-stopped
     networks:
-      - news-network
+      - newshub_network
 
-  # ========== Microservices ==========
-  auth-service:
+  # Backend API (FastAPI)
+  backend:
     build:
-      context: ./auth-service
+      context: ./backend
       dockerfile: Dockerfile
-    container_name: auth-service
+    container_name: newshub_backend
+    env_file:
+      - .env
     environment:
-      SERVICE_NAME: auth-service
-      GRPC_PORT: 8081
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: password
-      DB_NAME: auth_db
-      REDIS_ADDR: redis:6379
-      CONSUL_HOST: consul
-      CONSUL_PORT: 8500
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-newsadmin}:${POSTGRES_PASSWORD:-changeme123}@postgres:5432/${POSTGRES_DB:-newshub_db}
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/
+    volumes:
+      - ./backend:/app
+      - backend_logs:/app/logs
     ports:
-      - "8081:8081"
+      - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      consul:
-        condition: service_started
-    networks:
-      - news-network
-    restart: unless-stopped
-
-  news-service:
-    build:
-      context: ./news-service
-      dockerfile: Dockerfile
-    container_name: news-service
-    environment:
-      SERVICE_NAME: news-service
-      GRPC_PORT: 8082
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: password
-      DB_NAME: news_db
-      REDIS_ADDR: redis:6379
-      CONSUL_HOST: consul
-      CONSUL_PORT: 8500
-    ports:
-      - "8082:8082"
-    depends_on:
-      postgres:
+      rabbitmq:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-      consul:
-        condition: service_started
-    networks:
-      - news-network
+    command: >
+      sh -c "
+        echo 'Waiting for database...' &&
+        sleep 5 &&
+        alembic upgrade head &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      "
     restart: unless-stopped
-
-  seo-service:
-    build:
-      context: ./seo-service
-      dockerfile: Dockerfile
-    container_name: seo-service
-    environment:
-      ENVIRONMENT: production
-      SERVER_PORT: 8093
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: password
-      DB_NAME: newsportal_db
-      REDIS_ADDR: redis:6379
-      REDIS_PASSWORD: ""
-      REDIS_DB: 0
-      BASE_URL: ${BASE_URL:-http://localhost}
-      SITE_NAME: "Новостной портал"
-      NEWS_SERVICE_URL: http://news-service:8082
-      CONSUL_HOST: consul
-    ports:
-      - "8093:8093"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      consul:
-        condition: service_started
     networks:
-      - news-network
-    restart: unless-stopped
+      - newshub_network
 
-  admin-service:
+  # Celery Worker (для фоновых задач)
+  celery_worker:
     build:
-      context: ./admin-service
+      context: ./backend
       dockerfile: Dockerfile
-    container_name: admin-service
+    container_name: newshub_celery_worker
+    env_file:
+      - .env
     environment:
-      # Server
-      SERVER_PORT: 8084
-      SERVER_ENV: production
-      # Service URLs (HTTP, not gRPC)
-      AUTH_SERVICE_URL: http://auth-service:8081
-      NEWS_SERVICE_URL: http://news-service:8082
-      SEO_SERVICE_URL: http://seo-service:8093
-      MEDIA_SERVICE_URL: http://media-service:8085
-      # JWT
-      JWT_SECRET: ${JWT_SECRET:-your-production-secret-key}
-      # CORS (allow gateway and frontend)
-      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:8084,http://gateway:8080
-      # Pagination
-      DEFAULT_PAGE_SIZE: 20
-      MAX_PAGE_SIZE: 100
-      # Upload
-      MAX_FILE_SIZE: 10485760
-      ALLOWED_FILE_TYPES: image/jpeg,image/png,image/webp,image/gif
-    ports:
-      - "8084:8084"
-    depends_on:
-      - auth-service
-      - news-service
-      - seo-service
-    networks:
-      - news-network
-    restart: unless-stopped
-
-  media-service:
-    build:
-      context: ./media-service
-      dockerfile: Dockerfile
-    container_name: media-service
-    environment:
-      SERVICE_NAME: media-service
-      GRPC_PORT: 8085
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: password
-      DB_NAME: media_db
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: admin
-      MINIO_SECRET_KEY: password123
-      CONSUL_HOST: consul
-    ports:
-      - "8085:8085"
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-newsadmin}:${POSTGRES_PASSWORD:-changeme123}@postgres:5432/${POSTGRES_DB:-newshub_db}
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/
+    volumes:
+      - ./backend:/app
+      - celery_logs:/app/logs
     depends_on:
       - postgres
-      - minio
-      - consul
-    networks:
-      - news-network
-    restart: unless-stopped
-
-  gateway:
-    build:
-      context: ./gateway
-      dockerfile: Dockerfile
-    container_name: gateway
-    environment:
-      SERVICE_NAME: gateway
-      HTTP_PORT: 8080
-      AUTH_SERVICE_ADDR: auth-service:8081
-      NEWS_SERVICE_ADDR: news-service:8082
-      SEO_SERVICE_ADDR: seo-service:8093
-      ADMIN_SERVICE_ADDR: admin-service:8084
-      MEDIA_SERVICE_ADDR: media-service:8085
-      REDIS_ADDR: redis:6379
-      ENVIRONMENT: production
-      ALLOWED_ORIGINS: http://localhost:3000
-    ports:
-      - "8080:8080"
-    depends_on:
-      - auth-service
-      - news-service
-      - seo-service
-      - admin-service
-      - media-service
       - redis
-    networks:
-      - news-network
+      - rabbitmq
+      - backend
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=4
     restart: unless-stopped
+    networks:
+      - newshub_network
 
-  # ========== Frontend (Public Site) ==========
+  # Celery Beat (планировщик задач)
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: newshub_celery_beat
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-newsadmin}:${POSTGRES_PASSWORD:-changeme123}@postgres:5432/${POSTGRES_DB:-newshub_db}
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    command: celery -A app.celery_app beat --loglevel=info
+    restart: unless-stopped
+    networks:
+      - newshub_network
+
+  # Frontend (Next.js)
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: frontend
+    container_name: newshub_frontend
     environment:
-      NEXT_PUBLIC_API_URL: http://gateway:8080
-      NODE_ENV: production
+      - NEXT_PUBLIC_API_URL=http://151.241.228.203:8000/api
+      - NODE_ENV=production
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
     ports:
       - "3000:3000"
     depends_on:
-      - gateway
-    networks:
-      - news-network
+      - backend
+    command: npm run dev
     restart: unless-stopped
+    networks:
+      - newshub_network
 
-  # ========== Monitoring (Optional) ==========
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: newshub_nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+    networks:
+      - newshub_network
+
+  # Prometheus (мониторинг)
   prometheus:
     image: prom/prometheus:latest
-    container_name: news-prometheus
+    container_name: newshub_prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
     ports:
       - "9090:9090"
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
+    restart: unless-stopped
     networks:
-      - news-network
+      - newshub_network
 
+  # Grafana (визуализация метрик)
   grafana:
     image: grafana/grafana:latest
-    container_name: news-grafana
-    ports:
-      - "3001:3000"
+    container_name: newshub_grafana
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    ports:
+      - "3001:3000"
     depends_on:
       - prometheus
+    restart: unless-stopped
     networks:
-      - news-network
+      - newshub_network
 
 networks:
-  news-network:
+  newshub_network:
     driver: bridge
 
 volumes:
   postgres_data:
   redis_data:
-  minio_data:
   rabbitmq_data:
+  backend_logs:
+  celery_logs:
+  nginx_logs:
   prometheus_data:
   grafana_data:

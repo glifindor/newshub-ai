@@ -1,22 +1,36 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  swcMinify: true,
+  
+  // API URL
+  env: {
+    API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api',
+  },
+
+  // Images optimization
   images: {
-    domains: ['localhost'],
+    domains: [
+      'picsum.photos',
+      'api.freepik.com',
+      'images.unsplash.com',
+    ],
     remotePatterns: [
       {
-        protocol: 'http',
-        hostname: 'localhost',
+        protocol: 'https',
+        hostname: '**',
       },
     ],
   },
+
+  // Rewrites for API proxy
   async rewrites() {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://gateway:8080/api/:path*',
+        destination: `${process.env.NEXT_PUBLIC_API_URL}/:path*`,
       },
-    ]
+    ];
   },
 }
 

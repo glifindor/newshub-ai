@@ -1,26 +1,56 @@
-# Environment files with sensitive data
+# Переменные окружения (не коммитить!)
 .env
 .env.local
-.env.production
 .env.*.local
-**/.env
-**/.env.local
-**/.env.production
 
-# Go
-*.exe
-*.exe~
-*.dll
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
 *.so
-*.dylib
-*.test
-*.out
-bin/
-vendor/
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Coverage
-coverage.out
-coverage.html
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.next/
+out/
+.nuxt/
+dist/
+
+# Логи
+*.log
+logs/
+*.log.*
+
+# База данных
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker
+docker-compose.override.yml
 
 # IDE
 .vscode/
@@ -28,69 +58,23 @@ coverage.html
 *.swp
 *.swo
 *~
-
-# Node
-node_modules/
-.next/
-out/
-dist/
-.cache/
-
-# Logs
-*.log
-logs/
-
-# OS
 .DS_Store
-Thumbs.db
 
-# Docker
-*.log
-docker-compose.override.yml
+# Backup
+*.bak
+*.backup
+backups/
 
-# Protobuf generated files (keep in version control for convenience)
-# *.pb.go
+# SSL сертификаты
+*.pem
+*.key
+*.crt
 
-# Temporary files
-tmp/
-temp/
+# Тесты
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
 
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Build artifacts
-build/
-target/
-
-# Test cache
-.testcache/
-
-# Personal documents
-ПРОМТЫ.docx
-*.docx
-
-# Deployment scripts with server credentials
-deploy.ps1
-simple-deploy.sh
-deploy.sh
-create-env.sh
-init-db.sh
-fix-*.sh
-create-*.sh
-server-deploy.sh
-
-# Documentation with sensitive info
-MANUAL_DEPLOY.md
-DEPLOY_VIA_GIT.md
-TESTING_GUIDE.md
-TESTING_INSTRUCTIONS.md
-
-# Temporary documentation
-MISSING_COMPONENTS.md
-QUICK_FIX.md
-SUCCESS.md
-SUMMARY.md
-SIMPLE_DEPLOY.md
-
+# Alembic
+alembic/versions/*.pyc

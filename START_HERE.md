@@ -1,374 +1,363 @@
-# ===================================================================
-# ✅ ФИНАЛЬНАЯ ИНСТРУКЦИЯ - ЗАПУСК НОВОСТНОГО ПОРТАЛА
-# ===================================================================
+# 🚀 START HERE - Первые шаги после клонирования
 
-## 📊 ТЕКУЩИЙ СТАТУС
-
-✅ **Выполнено:**
-- Проект загружен на сервер `151.241.228.203` в `/opt/news-portal`
-- Docker 28.5.1 установлен
-- PostgreSQL, Redis, MinIO запущены
-- Firewall настроен (порты 22, 80, 443, 8091-8094)
-- Dockerfiles обновлены (Go 1.23)
-- Пароли сгенерированы в `/opt/news-portal/PASSWORDS.txt`
-
-⏳ **Сейчас выполняется:**
-- Сборка Docker образов для 3 сервисов (процесс ID: 10207)
-- Ожидаемое время: 3-5 минут
+> Вы только что склонировали **NewsHub AI**. Что дальше?
 
 ---
 
-## 🎯 ЧТО ДЕЛАТЬ ДАЛЬШЕ
+## 📋 Выберите ваш сценарий:
 
-### ШАГ 1: Дождаться завершения сборки (3-5 минут)
+### 🎯 Сценарий 1: "Я хочу БЫСТРО развернуть на production сервере"
 
-Подключитесь к серверу:
+**Время:** 15 минут  
+**Сложность:** ⭐ Легко (всё автоматически)
 
 ```powershell
-ssh root@151.241.228.203
+# Windows PowerShell
+.\scripts\setup-interactive.ps1
+
+# Скрипт сам:
+# ✅ Установит Docker на сервер
+# ✅ Настроит Firewall
+# ✅ Склонирует проект
+# ✅ Создаст .env файл
+# ✅ Запустит все контейнеры
+# ✅ Создаст администратора
 ```
 
-Проверьте статус сборки:
+**Что нужно:**
+- Пароль от сервера (root@151.241.228.203)
+- API ключи (OpenRouter, Telegram)
+- 10-15 минут времени ☕
 
-```bash
-# Проверить, работает ли процесс сборки
-ps aux | grep "docker compose build" | grep -v grep
-
-# Посмотреть лог сборки (последние 30 строк)
-tail -30 /tmp/full-build.log
-
-# Следить за логом в реальном времени
-tail -f /tmp/full-build.log
-# Нажмите Ctrl+C когда увидите "FINISHED" или "Successfully"
-```
-
-**Признаки успеха:**
-- В логе появится текст `Successfully built` или `FINISHED`
-- Процесс `docker compose build` завершится
-
-**Признаки ошибки:**
-- В логе появится `ERROR` или `failed to solve`
-- Нужно будет отправить мне лог ошибки
+**Документация:** [QUICK_DEPLOY.md](./QUICK_DEPLOY.md)
 
 ---
 
-### ШАГ 2: Запустить сервисы
+### 💻 Сценарий 2: "Я хочу запустить локально для разработки"
 
-После завершения сборки:
+**Время:** 10 минут  
+**Сложность:** ⭐⭐ Средне
 
 ```bash
-cd /opt/news-portal
+# 1. Скопировать .env
+cp .env.example .env
 
-# Запустить ВСЕ сервисы
-docker compose up -d
+# 2. Отредактировать .env (добавить API ключи)
+nano .env
 
-# ИЛИ запустить только микросервисы (если инфраструктура уже работает)
-docker compose up -d auth-service news-service media-service
+# 3. Запустить с Docker
+docker-compose up -d --build
+
+# 4. Открыть в браузере
+# http://localhost:3000 - Frontend
+# http://localhost:8000/docs - API
+```
+
+**Что нужно:**
+- Docker Desktop установлен
+- API ключи (OpenRouter, Telegram)
+
+**Документация:** [QUICK_START.md](./QUICK_START.md)
+
+---
+
+### 🛠️ Сценарий 3: "Я разработчик, хочу запустить backend и frontend отдельно"
+
+**Время:** 20 минут  
+**Сложность:** ⭐⭐⭐ Продвинуто
+
+**Backend:**
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+# Запустить БД через Docker
+docker-compose up -d postgres redis rabbitmq
+
+# Миграции
+alembic upgrade head
+
+# Запуск
+uvicorn app.main:app --reload
+```
+
+**Frontend:**
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+**Celery Worker:**
+```bash
+cd backend
+celery -A app.celery_app worker --loglevel=info
+```
+
+**Что нужно:**
+- Python 3.11+
+- Node.js 20+
+- PostgreSQL 15
+- Redis 7
+- RabbitMQ 3.12
+
+**Документация:** 
+- [backend/README_BACKEND.md](./backend/README_BACKEND.md)
+- [frontend/README.md](./frontend/README.md)
+
+---
+
+### 🤖 Сценарий 4: "Я хочу настроить CI/CD с GitHub Actions"
+
+**Время:** 30 минут  
+**Сложность:** ⭐⭐⭐⭐ Эксперт
+
+1. **Создать Docker Hub аккаунт** - https://hub.docker.com
+2. **Добавить GitHub Secrets:**
+   - Settings → Secrets → Actions
+   - См. список в [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md#настройка-github-secrets)
+3. **Push в main** - автоматический деплой!
+
+```bash
+git push origin main
+# GitHub Actions автоматически:
+# ✅ Запустит тесты
+# ✅ Соберет Docker images
+# ✅ Задеплоит на сервер
+# ✅ Отправит уведомление в Telegram
+```
+
+**Что нужно:**
+- GitHub репозиторий
+- Docker Hub аккаунт
+- SSH доступ к серверу
+
+**Документация:** [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md#cicd-с-github-actions)
+
+---
+
+## 🔑 Необходимые API ключи
+
+Независимо от сценария, вам понадобятся:
+
+### 1. OpenRouter API Key (обязательно)
+```
+Получить: https://openrouter.ai/keys
+Цена: от $5/месяц (зависит от модели)
+Зачем: AI-обработка новостей
+```
+
+### 2. Telegram Bot Token (обязательно)
+```
+Получить: https://t.me/BotFather
+Команда: /newbot
+Зачем: Публикация в Telegram каналы
+```
+
+### 3. Telegram Admin Chat ID (обязательно)
+```
+Получить: https://t.me/userinfobot
+Команда: /start
+Зачем: Уведомления об ошибках
+```
+
+### 4. NewsAPI Key (опционально)
+```
+Получить: https://newsapi.org
+Free tier: 100 запросов/день
+Зачем: Дополнительный источник новостей
+```
+
+### 5. Freepik API Key (опционально)
+```
+Получить: https://www.freepik.com/api
+Зачем: Изображения для новостей
 ```
 
 ---
 
-### ШАГ 3: Проверить работу
+## 📁 Структура проекта
 
-```bash
-# Проверить статус всех контейнеров
-docker compose ps
-
-# Должны быть запущены (STATUS: Up):
-# - news-postgres
-# - news-redis  
-# - news-minio
-# - news-portal-auth-service-1
-# - news-portal-news-service-1
-# - news-portal-media-service-1
 ```
-
-Проверить логи:
-
-```bash
-# Все логи
-docker compose logs --tail=50
-
-# Логи конкретного сервиса
-docker compose logs auth-service
-docker compose logs news-service
-docker compose logs media-service
+newsportal/
+├── 📁 backend/              # FastAPI приложение
+├── 📁 frontend/             # Next.js приложение
+├── 📁 nginx/                # Nginx конфигурация
+├── 📁 monitoring/           # Prometheus + Grafana
+├── 📁 scripts/              # Deployment scripts
+├── 📁 .github/workflows/    # CI/CD
+├── docker-compose.yml       # Development
+├── docker-compose.prod.yml  # Production
+├── .env.example             # Environment template
+└── 📚 Документация:
+    ├── README.md            # ← Вы здесь
+    ├── START_HERE.md        # ← Этот файл
+    ├── QUICK_DEPLOY.md      # Быстрый деплой
+    ├── QUICK_START.md       # Быстрый старт
+    ├── PRODUCTION_DEPLOYMENT.md  # Production гайд
+    ├── ARCHITECTURE.md      # Архитектура
+    └── DEPLOYMENT_COMPLETE.md    # Итоговая сводка
 ```
-
-Проверить здоровье API:
-
-```bash
-# На сервере
-curl http://localhost:8091/health    # Auth Service
-curl http://localhost:8092/health    # News Service  
-curl http://localhost:8094/health    # Media Service
-```
-
-**Ожидаемый ответ:** `{"status":"ok"}` или `{"status":"healthy"}`
 
 ---
 
-### ШАГ 4: Проверить доступ извне
+## 🆘 Частые проблемы
 
-С вашего Windows компьютера (PowerShell):
+### "ModuleNotFoundError" при запуске backend
+
+```bash
+# Убедитесь, что virtual environment активирован
+source venv/bin/activate  # Linux/Mac
+venv\Scripts\activate     # Windows
+
+# Установите зависимости
+pip install -r requirements.txt
+```
+
+### "ENOENT: no such file or directory" в frontend
+
+```bash
+# Установите зависимости
+cd frontend
+npm install
+```
+
+### "Cannot connect to Docker daemon"
+
+```bash
+# Запустите Docker Desktop (Windows/Mac)
+# Или Docker service (Linux)
+sudo systemctl start docker
+```
+
+### "Port 8000 already in use"
+
+```bash
+# Найдите процесс
+lsof -i :8000  # Linux/Mac
+netstat -ano | findstr :8000  # Windows
+
+# Остановите процесс или измените порт
+```
+
+---
+
+## 📚 Где искать помощь
+
+### Документация по темам
+
+| Тема | Файл | Описание |
+|------|------|----------|
+| 🚀 Быстрый деплой | [QUICK_DEPLOY.md](./QUICK_DEPLOY.md) | 15 минут до production |
+| ⚡ Локальный запуск | [QUICK_START.md](./QUICK_START.md) | Development setup |
+| 🏗️ Production | [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md) | Полный гайд (1000+ строк) |
+| 🏛️ Архитектура | [ARCHITECTURE.md](./ARCHITECTURE.md) | Как устроена система |
+| 📱 Telegram | [backend/TELEGRAM_BOT_SETUP.md](./backend/TELEGRAM_BOT_SETUP.md) | Настройка бота |
+| 🎨 Frontend | [frontend/README.md](./frontend/README.md) | Frontend документация |
+| ✅ Итоги | [DEPLOYMENT_COMPLETE.md](./DEPLOYMENT_COMPLETE.md) | Что создано |
+
+### Каналы поддержки
+
+- 💬 **Telegram:** @newshub_support
+- 📧 **Email:** support@newshub.ai
+- 🐛 **GitHub Issues:** https://github.com/glifindor/newsportal/issues
+- 📖 **Wiki:** https://github.com/glifindor/newsportal/wiki
+
+---
+
+## ✅ Чеклист "Я готов начать"
+
+- [ ] Проект склонирован
+- [ ] Документация прочитана (хотя бы README.md)
+- [ ] Выбран сценарий (1-4)
+- [ ] API ключи получены
+- [ ] Необходимое ПО установлено
+- [ ] .env файл создан и заполнен
+- [ ] Docker запущен (если используется)
+
+**Если все ✅ - можно начинать!**
+
+---
+
+## 🎯 Быстрые команды
+
+### Я хочу сразу начать (Docker)
+
+```bash
+cp .env.example .env
+nano .env  # Добавить API ключи
+docker-compose up -d --build
+```
+
+### Я хочу развернуть на production
 
 ```powershell
-curl http://151.241.228.203:8091/health
-curl http://151.241.228.203:8092/health
-curl http://151.241.228.203:8094/health
+.\scripts\setup-interactive.ps1
 ```
 
-**Если не работает** - откройте порты:
+### Я хочу увидеть документацию
 
 ```bash
-sudo ufw allow 8091/tcp
-sudo ufw allow 8092/tcp
-sudo ufw allow 8094/tcp
-sudo ufw reload
+ls *.md  # Список всех .md файлов
+cat README.md  # Прочитать README
+```
+
+### Я хочу увидеть логи
+
+```bash
+docker-compose logs -f
+docker-compose logs -f backend
+docker-compose logs -f frontend
 ```
 
 ---
 
-## 🔐 ДОСТУПЫ И ПАРОЛИ
-
-Все пароли сохранены на сервере:
-
-```bash
-cat /opt/news-portal/PASSWORDS.txt
-```
-
-### PostgreSQL
-- **Host:** `151.241.228.203:5432`
-- **Database:** `newsportal_db`
-- **User:** `newsportal`
-- **Password:** (см. PASSWORDS.txt)
-
-### Redis
-- **Host:** `151.241.228.203:6379`
-- **Password:** (см. PASSWORDS.txt)
-
-### MinIO (S3 Storage)
-- **Console:** `http://151.241.228.203:9001`
-- **API:** `http://151.241.228.203:9000`
-- **User:** `newsportal_admin`
-- **Password:** (см. PASSWORDS.txt)
-
----
-
-## 🌐 API ЭНДПОИНТЫ
-
-### Auth Service (`:8091`)
-```
-POST   /api/v1/register              - Регистрация
-POST   /api/v1/login                 - Вход
-POST   /api/v1/logout                - Выход
-GET    /api/v1/profile               - Профиль (требует JWT)
-POST   /api/v1/refresh-token         - Обновить токен
-POST   /api/v1/change-password       - Смена пароля (требует JWT)
-```
-
-### News Service (`:8092`)
-```
-# Категории
-GET    /api/v1/categories            - Список категорий
-POST   /api/v1/categories            - Создать категорию (admin)
-GET    /api/v1/categories/:id        - Получить категорию
-PUT    /api/v1/categories/:id        - Обновить категорию (admin)
-DELETE /api/v1/categories/:id        - Удалить категорию (admin)
-
-# Теги
-GET    /api/v1/tags                  - Список тегов
-POST   /api/v1/tags                  - Создать тег (editor)
-GET    /api/v1/tags/:id              - Получить тег
-PUT    /api/v1/tags/:id              - Обновить тег (editor)
-DELETE /api/v1/tags/:id              - Удалить тег (editor)
-
-# Новости
-GET    /api/v1/news                  - Список новостей
-POST   /api/v1/news                  - Создать новость (editor)
-GET    /api/v1/news/:id              - Получить новость
-PUT    /api/v1/news/:id              - Обновить новость (editor)
-DELETE /api/v1/news/:id              - Удалить новость (editor)
-GET    /api/v1/news/featured         - Избранные новости
-GET    /api/v1/news/breaking         - Срочные новости
-```
-
-### Media Service (`:8094`)
-```
-POST   /api/v1/upload                - Загрузить файл (требует JWT)
-GET    /api/v1/files/:id             - Информация о файле
-DELETE /api/v1/files/:id             - Удалить файл (требует JWT)
-GET    /api/v1/files/:id/url         - Получить URL файла
-GET    /api/v1/files                 - Список файлов (требует JWT)
-```
-
----
-
-## 🧪 ТЕСТИРОВАНИЕ API
-
-### 1. Регистрация пользователя
-
-```bash
-curl -X POST http://151.241.228.203:8091/api/v1/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "testuser",
-    "email": "test@example.com",
-    "password": "SecurePass123!",
-    "full_name": "Test User"
-  }'
-```
-
-### 2. Вход
-
-```bash
-curl -X POST http://151.241.228.203:8091/api/v1/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "test@example.com",
-    "password": "SecurePass123!"
-  }'
-```
-
-**Сохраните `access_token` из ответа!**
-
-### 3. Создать категорию (требует admin роли)
-
-```bash
-curl -X POST http://151.241.228.203:8092/api/v1/categories \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
-  -d '{
-    "name": "Технологии",
-    "slug": "tech",
-    "description": "Новости технологий"
-  }'
-```
-
-### 4. Создать новость
-
-```bash
-curl -X POST http://151.241.228.203:8092/api/v1/news \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
-  -d '{
-    "title": "Первая новость",
-    "slug": "first-news",
-    "content": "Содержимое первой новости",
-    "excerpt": "Краткое описание",
-    "category_id": 1,
-    "status": "published"
-  }'
-```
-
----
-
-## 🛠️ УПРАВЛЕНИЕ СЕРВИСАМИ
-
-```bash
-# Остановить все
-docker compose down
-
-# Запустить все
-docker compose up -d
-
-# Перезапустить конкретный сервис
-docker compose restart auth-service
-
-# Просмотр логов
-docker compose logs -f auth-service
-
-# Статус
-docker compose ps
-
-# Использование ресурсов
-docker stats
-```
-
----
-
-## 🆘 TROUBLESHOOTING
-
-### Проблема: Сервис не запускается
-
-```bash
-# Посмотреть подробные логи
-docker compose logs auth-service --tail=100
-
-# Проверить конфигурацию
-docker compose config
-
-# Пересобрать образ
-docker compose build auth-service
-docker compose up -d auth-service
-```
-
-### Проблема: База данных недоступна
-
-```bash
-# Проверить PostgreSQL
-docker compose exec postgres psql -U newsportal -d newsportal_db -c "SELECT 1;"
-
-# Проверить Redis
-docker compose exec redis redis-cli PING
-
-# Проверить подключения
-docker compose exec auth-service ping postgres
-```
-
-### Проблема: Порт занят
-
-```bash
-# Проверить какой процесс использует порт
-ss -tulpn | grep :8091
-
-# Остановить контейнер
-docker compose stop auth-service
-```
-
----
-
-## 📋 СЛЕДУЮЩИЕ ШАГИ
+## 🚀 Что дальше?
 
 После успешного запуска:
 
-1. ✅ Настроить Nginx reverse proxy
-2. ✅ Установить SSL/HTTPS (Let's Encrypt)
-3. ✅ Настроить доменное имя
-4. ✅ Настроить мониторинг (Prometheus + Grafana)
-5. ✅ Создать frontend (Next.js)
-6. ✅ Создать Admin Panel (React)
+1. **Откройте в браузере:**
+   - Frontend: http://localhost:3000
+   - API Docs: http://localhost:8000/docs
+   - Grafana: http://localhost:3001
 
-Подробные инструкции в `DEPLOYMENT_GUIDE.md`
+2. **Создайте администратора:**
+   ```bash
+   docker-compose exec backend python scripts/create_admin.py
+   ```
 
----
+3. **Добавьте источники новостей:**
+   - Админ-панель → Sources → Add Source
 
-## 💾 БЭКАПЫ
+4. **Запустите сбор новостей:**
+   - API Docs → /api/pipeline/pipeline → Execute
 
-Создать бэкап:
-
-```bash
-cd /opt/news-portal
-./deploy/backup.sh
-```
-
-Бэкапы сохраняются в `/opt/backups/`
+5. **Проверьте Telegram каналы:**
+   - @crypto_ainews
+   - @kremlin_digest
 
 ---
 
-## 📞 НУЖНА ПОМОЩЬ?
+## 💡 Советы
 
-Если возникли проблемы, отправьте мне:
+- 📖 **Читайте документацию** - там всё подробно расписано
+- 🐛 **Проверяйте логи** - `docker-compose logs -f`
+- ✅ **Следуйте чеклистам** - они в каждом .md файле
+- 💬 **Задавайте вопросы** - в Issues или Telegram
+- 🔄 **Обновляйте проект** - `git pull && docker-compose up -d --build`
 
-```bash
-# 1. Статус контейнеров
-docker compose ps
+---
 
-# 2. Логи проблемного сервиса
-docker compose logs auth-service --tail=50
+## 🎉 Готовы начать?
 
-# 3. Лог сборки (если была ошибка)
-cat /tmp/full-build.log | tail -100
-```
+**Выберите ваш сценарий выше и следуйте инструкциям!**
 
 Удачи! 🚀
+
+---
+
+<p align="center">
+  <b>Сделано с ❤️ и ☕ командой NewsHub AI</b>
+</p>

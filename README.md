@@ -1,85 +1,103 @@
-# News Portal - Микросервисная Архитектура
+# 🤖 NewsHub AI - Автоматизированная новостная платформа
 
-Новостной портал на Golang с микросервисной архитектурой, Next.js frontend и gRPC взаимодействием.
+> Умная система для сбора, обработки и публикации новостей с использованием искусственного интеллекта
 
-## 🏗️ Архитектура
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org/)
+[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
 
-Проект состоит из следующих микросервисов:
+---
 
-- **auth-service** (`:8081`) - Аутентификация и авторизация
-- **news-service** (`:8082`) - Управление новостями
-- **seo-service** (`:8083`) - SEO метаданные и sitemap
-- **admin-service** (`:8084`) - Админ-панель
-- **media-service** (`:8085`) - Загрузка и хранение медиа
-- **gateway** (`:8080`) - API Gateway
-- **frontend** (`:3000`) - Next.js приложение
+## ✨ Особенности
 
-## 🚀 Быстрый старт
+- **🤖 AI-обработка** - Автоматический анализ с OpenRouter (GPT-4, Claude 3.5, Gemini)
+- **📰 Мультиисточники** - RSS, API, web scraping с rate limiting
+- **🎯 Категоризация** - Автоматическое определение тематики (криптовалюты, политика)
+- **📊 Админ-панель** - Modern UI на Next.js 14 + Tailwind + TanStack Table
+- **🔄 Автопубликация** - Telegram каналы с retry logic и fallback
+- **📈 Мониторинг** - Prometheus + Grafana + алерты в Telegram
 
-### Требования
+---
 
-- Docker & Docker Compose
-- Go 1.21+ (для локальной разработки)
-- Node.js 18+ (для frontend разработки)
+## 🚀 Демо
 
-### Запуск всех сервисов
+- 🌐 **Frontend:** http://151.241.228.203
+- 📚 **API Docs:** http://151.241.228.203/docs
+- 📊 **Grafana:** http://151.241.228.203:3001
+- 🔐 **Crypto Channel:** [@crypto_ainews](https://t.me/crypto_ainews)
+- 🏛️ **Politics Channel:** [@kremlin_digest](https://t.me/kremlin_digest)
+
+---
+
+## 📚 Документация
+
+### 📖 Для быстрого старта
+
+- **[QUICK_DEPLOY.md](./QUICK_DEPLOY.md)** - 🚀 Быстрый деплой за 15 минут
+- **[QUICK_START.md](./QUICK_START.md)** - ⚡ Локальная разработка
+
+### 📚 Подробная документация
+
+- **[PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md)** - 🏗️ Production deploy (полный гайд)
+- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - 🔧 Базовая инструкция по деплою
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - 🏛️ Архитектура системы
+
+### 📡 Специализированные гайды
+
+- **[backend/TELEGRAM_BOT_SETUP.md](./backend/TELEGRAM_BOT_SETUP.md)** - 📱 Настройка Telegram бота
+- **[frontend/README.md](./frontend/README.md)** - 🎨 Frontend документация
+- **[frontend/SETUP.md](./frontend/SETUP.md)** - ⚙️ Frontend setup
+
+---
+
+## ⚡ Быстрый старт
+
+### Вариант 1: Автоматический деплой (Windows)
+
+```powershell
+# 1. Клонировать
+git clone https://github.com/glifindor/newsportal.git
+cd newsportal
+
+# 2. Запустить интерактивную установку
+.\scripts\setup-interactive.ps1
+
+# Скрипт запросит пароль от сервера и API ключи
+# Подождите 10-15 минут ☕
+# Готово! 🎉
+```
+
+### Вариант 2: Docker локально
 
 ```bash
-# Клонируйте репозиторий
-cd "НОВСТНОЙ САЙТ"
+# 1. Клонировать
+git clone https://github.com/glifindor/newsportal.git
+cd newsportal
 
-# Запустите все сервисы через Docker Compose
-docker-compose up -d
+# 2. Настроить .env
+cp .env.example .env
+nano .env  # Заполнить API ключи
 
-# Проверьте статус сервисов
-docker-compose ps
+# 3. Запустить
+docker-compose up -d --build
 
-# Просмотр логов
-docker-compose logs -f gateway
+# 4. Открыть
+# http://localhost:3000 - Frontend
+# http://localhost:8000/docs - API
+# http://localhost:3001 - Grafana
 ```
 
-### Доступ к сервисам
-
-- **Frontend**: http://localhost:3000
-- **API Gateway**: http://localhost:8080
-- **Consul UI**: http://localhost:8500
-- **RabbitMQ Management**: http://localhost:15672 (admin/password)
-- **MinIO Console**: http://localhost:9001 (admin/password123)
-- **Grafana**: http://localhost:3001 (admin/admin)
-- **Prometheus**: http://localhost:9090
-
-## 📁 Структура проекта
-
-```
-НОВСТНОЙ САЙТ/
-├── auth-service/           # Сервис аутентификации
-├── news-service/           # Сервис новостей
-├── seo-service/            # SEO сервис
-├── admin-service/          # Админ-панель
-├── media-service/          # Медиа сервис
-├── gateway/                # API Gateway
-├── frontend/               # Next.js приложение
-├── scripts/                # Скрипты инициализации
-├── monitoring/             # Конфигурация мониторинга
-├── docker-compose.yml      # Docker Compose конфигурация
-└── ARCHITECTURE.md         # Подробная архитектура
-```
-
-## 🔧 Разработка
-
-### Запуск отдельного сервиса локально
+### Вариант 3: Локальная разработка
 
 ```bash
-# Auth Service
-cd auth-service
-cp .env.example .env
-go mod download
-go run cmd/auth-service/main.go
-
-# News Service
-cd news-service
-cp .env.example .env
-go run cmd/news-service/main.go
+# Backend
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload
 
 # Frontend
 cd frontend
@@ -87,163 +105,108 @@ npm install
 npm run dev
 ```
 
-### Генерация protobuf файлов
+---
 
-```bash
-# Установка protoc
-go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+## 🛠️ Технологический стек
 
-# Генерация для auth-service
-cd auth-service
-protoc --go_out=. --go-grpc_out=. proto/auth.proto
-
-# Генерация для news-service
-cd news-service
-protoc --go_out=. --go-grpc_out=. proto/news.proto
+### Backend
+```
+FastAPI 0.104+      SQLAlchemy 2.0      Celery 5.3
+PostgreSQL 15       Redis 7             RabbitMQ 3.12
+Alembic             Pydantic V2         Python 3.11
 ```
 
-### Миграции базы данных
-
-```bash
-# Установка golang-migrate
-go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
-
-# Применение миграций
-migrate -path auth-service/migrations -database "postgresql://postgres:password@localhost:5432/auth_db?sslmode=disable" up
-
-# Откат миграций
-migrate -path auth-service/migrations -database "postgresql://postgres:password@localhost:5432/auth_db?sslmode=disable" down
+### Frontend
+```
+Next.js 14          React 18            TypeScript 5
+Tailwind CSS 3      TanStack Query      TanStack Table
+NextAuth.js         Socket.IO           Framer Motion
 ```
 
-## 🔐 Аутентификация
-
-Система использует JWT токены:
-
-1. **Access Token** - короткоживущий (15 минут)
-2. **Refresh Token** - долгоживущий (7 дней)
-
-### Пример использования
-
-```bash
-# Регистрация
-curl -X POST http://localhost:8080/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "password": "password123",
-    "full_name": "John Doe",
-    "role": "user"
-  }'
-
-# Вход
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "password": "password123"
-  }'
-
-# Использование токена
-curl http://localhost:8080/api/news \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+### Infrastructure
 ```
-
-## 📊 Мониторинг
-
-### Prometheus Metrics
-
-Каждый сервис экспортирует метрики:
-- HTTP запросов (количество, латентность)
-- gRPC вызовов
-- Использование памяти и CPU
-- Размер очередей
-
-### Grafana Dashboards
-
-Предустановленные дашборды:
-- Обзор системы
-- Метрики по сервисам
-- Database performance
-- API Gateway statistics
-
-## 🧪 Тестирование
-
-```bash
-# Unit тесты
-cd auth-service
-go test ./...
-
-# Integration тесты
-docker-compose -f docker-compose.test.yml up --abort-on-container-exit
-
-# E2E тесты frontend
-cd frontend
-npm run test:e2e
+Docker & Compose    Nginx               Prometheus
+Grafana             GitHub Actions      Let's Encrypt
 ```
-
-## 🔄 CI/CD
-
-Проект использует GitHub Actions для автоматического деплоя:
-
-```yaml
-# .github/workflows/deploy.yml
-- Build Docker images
-- Run tests
-- Push to registry
-- Deploy to Kubernetes
-```
-
-## 📚 Документация
-
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - Подробная архитектура системы
-- [auth-service/README.md](./auth-service/README.md) - Документация Auth Service
-- [news-service/README.md](./news-service/README.md) - Документация News Service
-- [gateway/README.md](./gateway/README.md) - Документация API Gateway
-
-## 🛠️ Технологии
-
-**Backend:**
-- Go 1.21
-- gRPC
-- PostgreSQL 15
-- Redis 7
-- MinIO (S3-compatible storage)
-- RabbitMQ
-- Consul (Service Discovery)
-
-**Frontend:**
-- Next.js 14
-- React 18
-- TypeScript
-- TailwindCSS
-
-**DevOps:**
-- Docker & Docker Compose
-- Kubernetes (для production)
-- Prometheus & Grafana
-- Jaeger (Distributed Tracing)
-
-## 🤝 Вклад в проект
-
-1. Fork проекта
-2. Создайте feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit изменения (`git commit -m 'Add some AmazingFeature'`)
-4. Push в branch (`git push origin feature/AmazingFeature`)
-5. Откройте Pull Request
-
-## 📄 Лицензия
-
-MIT License
-
-## 👥 Авторы
-
-- GitHub Copilot
-
-## 📞 Поддержка
-
-Если у вас возникли вопросы, создайте Issue в репозитории.
 
 ---
 
-**Статус проекта:** В разработке 🚧
+## 🔑 Необходимые API ключи
+
+1. ✅ **OpenRouter** - https://openrouter.ai/keys
+2. ✅ **Telegram Bot** - https://t.me/BotFather
+3. ✅ **Telegram Chat ID** - https://t.me/userinfobot
+4. ⚪ **NewsAPI** - https://newsapi.org/ (опционально)
+5. ⚪ **Freepik** - https://freepik.com/api (опционально)
+
+---
+
+## 📊 Архитектура
+
+```
+Client → Nginx → Frontend (Next.js) + Backend (FastAPI)
+                      ↓
+           PostgreSQL + Redis + RabbitMQ
+                      ↓
+              Celery Workers
+                      ↓
+           External APIs (OpenRouter, Telegram)
+```
+
+Подробнее: [ARCHITECTURE.md](./ARCHITECTURE.md)
+
+---
+
+## 📈 Мониторинг
+
+- **Prometheus:** http://151.241.228.203:9090
+- **Grafana:** http://151.241.228.203:3001 (admin/admin123)
+- **Flower:** http://151.241.228.203:5555 (Celery)
+- **RabbitMQ:** http://151.241.228.203:15672 (guest/guest)
+
+---
+
+## 💰 Стоимость
+
+- **VPS:** $22-40/мес (Hetzner/Vultr)
+- **OpenRouter API:** $5-50/мес
+- **Домен:** $10/год
+
+**Итого:** ~$30-50/месяц на старт
+
+---
+
+## 🤝 Contributing
+
+1. Fork репозиторий
+2. Создайте feature branch
+3. Commit изменения
+4. Push в branch
+5. Создайте Pull Request
+
+---
+
+## 📄 License
+
+MIT License - см. [LICENSE](LICENSE)
+
+---
+
+## 📞 Контакты
+
+- 📧 Email: support@newshub.ai
+- 💬 Telegram: [@newshub_support](https://t.me/newshub_support)
+- 🐛 Issues: [GitHub Issues](https://github.com/glifindor/newsportal/issues)
+
+---
+
+<p align="center">
+  <b>Сделано с ❤️ и ☕ командой NewsHub AI</b>
+</p>
+
+- **GitHub:** https://github.com/glifindor/newsportal
+- **Telegram:** @crypto_ainews, @kremlin_digest
+
+## 📄 Лицензия
+
+MIT

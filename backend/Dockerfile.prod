@@ -1,0 +1,77 @@
+# ================================
+# PRODUCTION DOCKERFILE для Backend
+# Multi-stage build для минимизации размера образа
+# ================================
+
+# Stage 1: Builder
+FROM python:3.11-slim as builder
+
+WORKDIR /app
+
+# Установка build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    make \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Копирование requirements
+COPY requirements.txt .
+
+# Установка Python зависимостей в виртуальное окружение
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Stage 2: Production
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Установка runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-client \
+    curl \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Копирование виртуального окружения из builder
+COPY --from=builder /opt/venv /opt/venv
+
+# Создание пользователя без root прав
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Копирование приложения
+COPY --chown=appuser:appuser . .
+
+# Создание директорий для логов и данных
+RUN mkdir -p /app/logs /app/data && \
+    chown -R appuser:appuser /app
+
+# Настройка PATH для виртуального окружения
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app
+
+# Переключение на непривилегированного пользователя
+USER appuser
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+EXPOSE 8000
+
+# Запуск с Gunicorn для production
+CMD ["gunicorn", "app.main:app", \
+     "--workers", "4", \
+     "--worker-class", "uvicorn.workers.UvicornWorker", \
+     "--bind", "0.0.0.0:8000", \
+     "--timeout", "120", \
+     "--keep-alive", "5", \
+     "--access-logfile", "/app/logs/access.log", \
+     "--error-logfile", "/app/logs/error.log", \
+     "--log-level", "info"]
