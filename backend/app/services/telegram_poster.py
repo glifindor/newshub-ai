@@ -26,6 +26,7 @@ from tenacity import (before_sleep_log, retry, retry_if_exception_type,
 from app.core.config import settings
 from app.core.logger import get_logger
 from app.models import NewsChannel, NewsItem, NewsStatus
+from app.services.image_generator import ImageGenerator
 
 logger = get_logger(__name__)
 
@@ -80,6 +81,7 @@ class TelegramPoster:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
+        self.image_generator = ImageGenerator()
 
         # Rate limiter
         self.rate_limiter = RateLimiter(max_messages=20, time_window=60)
@@ -326,11 +328,12 @@ class TelegramPoster:
 
         Процесс:
         1. Проверка канала
-        2. Форматирование сообщения
-        3. Rate limiting
-        4. Отправка с retry логикой
-        5. Обновление БД
-        6. Уведомление админу (если notify_admin=True)
+        2. Генерация изображения (если нет)
+        3. Форматирование сообщения
+        4. Rate limiting
+        5. Отправка с retry логикой
+        6. Обновление БД
+        7. Уведомление админу (если notify_admin=True)
 
         Args:
             news: NewsItem объект
@@ -348,6 +351,25 @@ class TelegramPoster:
                 logger.error(f"Unknown channel for category: {news.category}")
                 self.stats["total_failed"] += 1
                 return False
+
+            # Генерация изображения, если его ещё нет
+            if not news.image_url and settings.FREEPIK_API_KEY:
+                logger.info(f"Generating image for news {news.id}")
+                try:
+                    image_url = await self.image_generator.generate_for_news(
+                        title=news.title,
+                        summary=news.ai_summary or news.content[:200],
+                        category=news.category.value,
+                    )
+                    if image_url:
+                        news.image_url = image_url
+                        await self.db.commit()
+                        logger.info(f"✅ Image generated: {image_url}")
+                    else:
+                        logger.warning(f"⚠️ Image generation failed for news {news.id}")
+                except Exception as img_error:
+                    logger.error(f"Image generation error: {img_error}", exc_info=True)
+                    # Продолжаем публикацию без изображения
 
             # Форматирование сообщения
             message_text = self.format_message(news, parse_mode="HTML")
