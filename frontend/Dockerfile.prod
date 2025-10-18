@@ -14,11 +14,9 @@ RUN apk add --no-cache libc6-compat
 # Копирование файлов зависимостей
 COPY package.json package-lock.json* ./
 
-# Установка зависимостей
-RUN npm ci --only=production --ignore-scripts && \
-    npm cache clean --force
-
-# Stage 2: Builder
+    # Установка зависимостей
+    RUN npm ci --ignore-scripts && \
+        npm cache clean --force# Stage 2: Builder
 FROM node:20-alpine AS builder
 
 WORKDIR /app
