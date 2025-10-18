@@ -13,15 +13,14 @@ engine_kwargs = {
 if settings.DATABASE_URL.startswith("sqlite"):
     engine_kwargs["poolclass"] = NullPool
 else:
-    engine_kwargs.update({
-        "pool_size": 10,
-        "max_overflow": 20,
-    })
+    engine_kwargs.update(
+        {
+            "pool_size": 10,
+            "max_overflow": 20,
+        }
+    )
 
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    **engine_kwargs,
-)
+engine = create_async_engine(settings.DATABASE_URL, **engine_kwargs)
 
 # Create async session factory
 AsyncSessionLocal = async_sessionmaker(
