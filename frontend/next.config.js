@@ -25,13 +25,16 @@ const nextConfig = {
 
   // Rewrites for API proxy
   async rewrites() {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://backend:8000';
     return [
       {
         source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL}/:path*`,
+        destination: `${apiUrl}/:path*`,
       },
     ];
   },
+  
+  output: 'standalone',
 }
 
 module.exports = nextConfig
