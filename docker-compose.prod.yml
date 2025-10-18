@@ -114,9 +114,7 @@ services:
 
   # Backend API (FastAPI)
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
+    image: ${DOCKER_HUB_USERNAME:-glifindor}/newshub-backend:latest
     container_name: newshub_backend
     env_file:
       - .env
@@ -162,9 +160,7 @@ services:
 
   # Celery Worker (для фоновых задач)
   celery_worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
+    image: ${DOCKER_HUB_USERNAME:-glifindor}/newshub-backend:latest
     container_name: newshub_celery_worker
     env_file:
       - .env
@@ -216,9 +212,7 @@ services:
 
   # Celery Beat (планировщик задач)
   celery_beat:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
+    image: ${DOCKER_HUB_USERNAME:-glifindor}/newshub-backend:latest
     container_name: newshub_celery_beat
     env_file:
       - .env
@@ -259,9 +253,7 @@ services:
 
   # Celery Flower (мониторинг Celery)
   celery_flower:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
+    image: ${DOCKER_HUB_USERNAME:-glifindor}/newshub-backend:latest
     container_name: newshub_celery_flower
     env_file:
       - .env
@@ -293,9 +285,7 @@ services:
 
   # Frontend (Next.js)
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.prod
+    image: ${DOCKER_HUB_USERNAME:-glifindor}/newshub-frontend:latest
     container_name: newshub_frontend
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
@@ -331,7 +321,7 @@ services:
 
   # Nginx Reverse Proxy
   nginx:
-    image: nginx:alpine
+    image: ${DOCKER_HUB_USERNAME:-glifindor}/newshub-nginx:latest
     container_name: newshub_nginx
     volumes:
       - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
