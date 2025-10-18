@@ -15,7 +15,7 @@ celery==5.3.6
 flower==2.0.1
 
 # HTTP клиент
-httpx==0.26.0
+httpx==0.25.2
 aiohttp==3.9.1
 requests==2.31.0
 
