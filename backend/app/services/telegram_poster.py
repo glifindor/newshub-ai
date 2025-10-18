@@ -42,31 +42,41 @@ class RateLimiter:
     def __init__(self, max_messages: int = 20, time_window: int = 60):
         self.max_messages = max_messages
         self.time_window = time_window
-        self.messages = deque()
+        self._messages = deque()
+
+    def _purge_expired(self, now: Optional[datetime] = None) -> None:
+        """Удаляем сообщения, которые вышли за окно таймера."""
+        current = now or datetime.utcnow()
+        while (
+            self._messages
+            and (current - self._messages[0]).total_seconds() > self.time_window
+        ):
+            self._messages.popleft()
+
+    @property
+    def messages(self) -> deque:
+        """Возвращаем очередь сообщений, предварительно очищая её."""
+        self._purge_expired()
+        return self._messages
 
     async def acquire(self):
         """Ожидание перед отправкой следующего сообщения"""
-        now = datetime.utcnow()
+        while True:
+            now = datetime.utcnow()
+            self._purge_expired(now)
 
-        # Удаляем старые записи
-        while (
-            self.messages
-            and (now - self.messages[0]).total_seconds() > self.time_window
-        ):
-            self.messages.popleft()
+            if len(self._messages) < self.max_messages:
+                self._messages.append(now)
+                return
 
-        # Если превышен лимит, ждём
-        if len(self.messages) >= self.max_messages:
-            oldest = self.messages[0]
+            oldest = self._messages[0]
             wait_time = self.time_window - (now - oldest).total_seconds()
             if wait_time > 0:
                 logger.warning(f"Rate limit reached, waiting {wait_time:.1f}s")
                 await asyncio.sleep(wait_time)
-                # Рекурсивно проверяем снова
-                return await self.acquire()
-
-        # Добавляем текущую отправку
-        self.messages.append(now)
+            else:
+                # Старые записи уже истекли, повторяем цикл без ожидания
+                await asyncio.sleep(0)
 
 
 class TelegramPoster:
@@ -154,7 +164,7 @@ class TelegramPoster:
         insights = ""
         if news.ai_insights:
             if parse_mode == "HTML":
-                insights = f"\n\n� <b>AI-инсайт:</b>"
+                insights = f"\n\n🔍 <b>AI-инсайт:</b>"
             else:
                 insights = f"\n\n🔍 *AI-инсайт:*"
 
@@ -347,7 +357,15 @@ class TelegramPoster:
         Returns:
             True если успешно, False если ошибка
         """
-        logger.info(f"Posting news {news.id} to Telegram", category=news.category.value)
+        category_value = (
+            getattr(news.category, "value", str(news.category))
+            if news.category is not None
+            else "unknown"
+        )
+        logger.info(
+            f"Posting news {news.id} to Telegram",
+            category=category_value,
+        )
 
         try:
             # Определение канала
@@ -481,7 +499,7 @@ class TelegramPoster:
 
         for news in news_items:
             try:
-                success = await self.post_news(news)
+                success = await self.post_news(news, notify_admin=False)
 
                 if success:
                     results["posted"] += 1

@@ -37,8 +37,9 @@ class ImageGenerator:
         self.api_key = settings.FREEPIK_API_KEY
         self.api_url = "https://api.freepik.com/v1/ai/mystic"
         self.timeout = 60.0
+        self.enabled = bool(self.api_key and not self.api_key.startswith("test-"))
 
-        if not self.api_key:
+        if not self.enabled:
             logger.warning("FREEPIK_API_KEY not set, image generation disabled")
 
     @retry(
@@ -69,7 +70,7 @@ class ImageGenerator:
         Returns:
             URL сгенерированного изображения или None
         """
-        if not self.api_key:
+        if not self.enabled:
             logger.warning("Image generation skipped: no API key")
             return None
 

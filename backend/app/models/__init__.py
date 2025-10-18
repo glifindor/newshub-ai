@@ -3,6 +3,7 @@ Database models для NewsHub AI
 """
 
 import enum
+import json
 import uuid
 from datetime import datetime
 
@@ -10,8 +11,72 @@ from sqlalchemy import Boolean, Column, DateTime
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import Float, Integer, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.types import Text as TextType
+from sqlalchemy.types import TypeDecorator
 
 from app.core.database import Base
+
+# Очищаем metadata при модульном импорте, чтобы избежать дублирования таблиц в тестовом окружении
+Base.metadata.clear()
+
+
+class StringArray(TypeDecorator):
+    """Cross-dialect friendly list of strings stored as JSON when ARRAY is unavailable."""
+
+    cache_ok = True
+    impl = TextType
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(ARRAY(String))
+        return dialect.type_descriptor(TextType)
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if dialect.name == "postgresql":
+            return value
+        if isinstance(value, str):
+            return value
+        return json.dumps(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        if dialect.name == "postgresql":
+            return value
+        try:
+            return json.loads(value)
+        except (TypeError, json.JSONDecodeError):
+            return value
+
+
+class GUID(TypeDecorator):
+    """Platform-independent GUID type."""
+
+    cache_ok = True
+    impl = UUID
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(UUID(as_uuid=True))
+        return dialect.type_descriptor(String(36))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        if dialect.name == "postgresql":
+            return value
+        if isinstance(value, uuid.UUID):
+            return str(value)
+        return str(uuid.UUID(str(value)))
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        if dialect.name == "postgresql":
+            return value
+        return uuid.UUID(value)
 
 
 class NewsStatus(str, enum.Enum):
@@ -52,7 +117,7 @@ class NewsSource(Base):
     is_active = Column(Boolean, default=True)
 
     # Keywords для фильтрации
-    keywords = Column(ARRAY(String), nullable=True)
+    keywords = Column(StringArray(), nullable=True)
 
     # Метаданные
     last_fetched_at = Column(DateTime, nullable=True)
@@ -69,7 +134,7 @@ class NewsItem(Base):
 
     __tablename__ = "news_items"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4, index=True)
     source_id = Column(Integer, nullable=False)
 
     # Контент
@@ -81,13 +146,13 @@ class NewsItem(Base):
 
     # Метаданные
     category = Column(SQLEnum(NewsChannel), nullable=False)
-    tags = Column(ARRAY(String), nullable=True)
+    tags = Column(StringArray(), nullable=True)
     language = Column(String(10), default="ru")
 
     # AI-анализ
     ai_summary = Column(Text, nullable=True)  # Краткий тизер
     ai_insights = Column(Text, nullable=True)  # Инсайты для инвесторов/политики
-    ai_hashtags = Column(ARRAY(String), nullable=True)  # Хэштеги
+    ai_hashtags = Column(StringArray(), nullable=True)  # Хэштеги
     relevance_score = Column(Float, nullable=True)  # Рейтинг релевантности (0-10)
 
     # Статус
@@ -129,8 +194,8 @@ class AITask(Base):
 
     __tablename__ = "ai_tasks"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    news_item_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    news_item_id = Column(GUID(), nullable=False, index=True)
 
     task_type = Column(String(50), nullable=False)  # analyze, generate_image, summarize
     status = Column(

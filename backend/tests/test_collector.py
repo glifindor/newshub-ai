@@ -1,9 +1,14 @@
 # 🧪 Pytest тесты для NewsHub AI
 
+import os
+
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import (AsyncSession, async_sessionmaker,
-                                    create_async_engine)
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.pool import NullPool
 
 from app.core.database import Base
@@ -12,17 +17,35 @@ from app.models import (NewsChannel, NewsItem, NewsSource, NewsStatus,
 from app.services.collector import NewsCollector
 
 # Test database URL
-TEST_DATABASE_URL = "postgresql+asyncpg://test:test@localhost:5432/test_newshub"
+TEST_DATABASE_URL = os.getenv(
+    "TEST_DATABASE_URL",
+    "sqlite+aiosqlite:///./test_newshub.db",
+)
+
+
+async def _prepare_engine(database_url: str):
+    """Создаёт движок и разворачивает схему, при ошибке подключается к SQLite."""
+
+    async def _create(url: str):
+        engine_local = create_async_engine(url, poolclass=NullPool)
+        async with engine_local.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        return engine_local
+
+    try:
+        engine = await _create(database_url)
+        return engine
+    except Exception:
+        # Fallback на локальную SQLite, чтобы тесты не зависели от внешних сервисов
+        fallback_url = "sqlite+aiosqlite:///./test_newshub_fallback.db"
+        engine = await _create(fallback_url)
+        return engine
 
 
 @pytest_asyncio.fixture
 async def test_db():
     """Create test database session"""
-    engine = create_async_engine(TEST_DATABASE_URL, poolclass=NullPool)
-
-    # Create tables
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    engine = await _prepare_engine(TEST_DATABASE_URL)
 
     # Create session
     async_session = async_sessionmaker(
@@ -31,7 +54,6 @@ async def test_db():
 
     async with async_session() as session:
         yield session
-
     # Drop tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
