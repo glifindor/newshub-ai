@@ -14,8 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.logger import get_logger
-from app.models import (NewsChannel, NewsItem, NewsSource, NewsStatus,
-                        SourceType)
+from app.models import NewsChannel, NewsItem, NewsSource, NewsStatus, SourceType
 
 logger = get_logger(__name__)
 

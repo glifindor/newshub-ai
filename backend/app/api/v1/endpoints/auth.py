@@ -4,8 +4,7 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.security import (create_access_token, create_refresh_token,
-                               verify_password)
+from app.core.security import create_access_token, create_refresh_token, verify_password
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
