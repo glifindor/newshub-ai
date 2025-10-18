@@ -10,8 +10,12 @@ from typing import Any, Dict, Optional
 import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
-                      wait_exponential)
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from app.core.config import settings
 from app.core.logger import get_logger
