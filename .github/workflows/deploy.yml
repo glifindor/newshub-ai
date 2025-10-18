@@ -166,6 +166,7 @@ jobs:
           context: ./backend
           file: ./backend/Dockerfile.prod
           push: true
+          provenance: false
           tags: |
             ${{ secrets.DOCKER_HUB_USERNAME }}/newshub-backend:latest
             ${{ secrets.DOCKER_HUB_USERNAME }}/newshub-backend:${{ steps.meta.outputs.SHORT_SHA }}
@@ -179,6 +180,7 @@ jobs:
           context: ./frontend
           file: ./frontend/Dockerfile.prod
           push: true
+          provenance: false
           build-args: |
             NEXT_PUBLIC_API_URL=http://151.241.228.203/api
             NEXT_PUBLIC_WS_URL=ws://151.241.228.203
@@ -195,6 +197,7 @@ jobs:
           context: ./nginx
           file: ./nginx/Dockerfile
           push: true
+          provenance: false
           tags: |
             ${{ secrets.DOCKER_HUB_USERNAME }}/newshub-nginx:latest
             ${{ secrets.DOCKER_HUB_USERNAME }}/newshub-nginx:${{ steps.meta.outputs.SHORT_SHA }}
