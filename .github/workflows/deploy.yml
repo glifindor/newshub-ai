@@ -340,6 +340,11 @@ jobs:
             echo "File size: $(wc -c < .env) bytes"
             
             mkdir -p /opt/newshub/backups
+            
+            # Load environment variables for shell commands
+            set -a
+            source .env
+            set +a
 
             # Ensure modern docker-compose binary available (workaround for ContainerConfig bug)
             if ! docker-compose version 2>/dev/null | grep -q "v2"; then
@@ -351,8 +356,11 @@ jobs:
             docker-compose --env-file .env pull
             
             # Backup database before update (skip if no DB exists yet)
-            if docker-compose --env-file .env ps postgres | grep -q "Up"; then
-              docker-compose --env-file .env exec -T postgres pg_dump -U ${POSTGRES_USER:-postgres} ${POSTGRES_DB:-newshub} > /opt/newshub/backups/backup_$(date +%Y%m%d_%H%M%S).sql || true
+            if docker-compose --env-file .env ps postgres 2>/dev/null | grep -q "Up"; then
+              echo "Creating database backup..."
+              docker-compose --env-file .env exec -T postgres pg_dump -U ${POSTGRES_USER} ${POSTGRES_DB} > /opt/newshub/backups/backup_$(date +%Y%m%d_%H%M%S).sql || echo "Backup failed or DB not ready, continuing..."
+            else
+              echo "PostgreSQL not running yet, skipping backup..."
             fi
             
             # Stop and remove old containers to avoid metadata issues
