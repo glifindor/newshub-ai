@@ -488,19 +488,84 @@ jobs:
             
             echo "✅ All infrastructure services are fully ready!"
 
-            # Recreate backend first and wait for it to become ready
+            # Recreate backend first and wait for it to become healthy
             docker-compose --env-file .env up -d backend
-            sleep 60
 
-            # Run migrations inside backend container
+            echo "Waiting for backend container to become healthy..."
+            BACKEND_READY=false
+            for i in {1..30}; do
+              status=$(docker inspect --format='{{.State.Health.Status}}' newshub_backend 2>/dev/null || echo "starting")
+              if [ "$status" = "healthy" ]; then
+                echo "✅ Backend container is healthy"
+                BACKEND_READY=true
+                break
+              fi
+              if [ $i -eq 1 ] || [ $((i % 5)) -eq 0 ]; then
+                echo "⏳ Backend health status: $status ($i/30)"
+              fi
+              sleep 5
+            done
+
+            if [ "$BACKEND_READY" = false ]; then
+              echo "❌ Backend failed to become healthy. Dumping logs:"
+              docker-compose --env-file .env logs --tail=100 backend || true
+              exit 1
+            fi
+
+            # Run migrations inside backend container once it is healthy
             docker-compose --env-file .env exec -T backend /opt/venv/bin/alembic upgrade head
 
             # Recreate frontend and nginx once backend is healthy
             docker-compose --env-file .env up -d --force-recreate frontend nginx
 
+            echo "Waiting for frontend container to become healthy..."
+            FRONTEND_READY=false
+            for i in {1..30}; do
+              status=$(docker inspect --format='{{.State.Health.Status}}' newshub_frontend 2>/dev/null || echo "starting")
+              if [ "$status" = "healthy" ]; then
+                echo "✅ Frontend container is healthy"
+                FRONTEND_READY=true
+                break
+              fi
+              if [ $i -eq 1 ] || [ $((i % 5)) -eq 0 ]; then
+                echo "⏳ Frontend health status: $status ($i/30)"
+              fi
+              sleep 5
+            done
+
+            if [ "$FRONTEND_READY" = false ]; then
+              echo "❌ Frontend failed to become healthy. Dumping logs:"
+              docker-compose --env-file .env logs --tail=100 frontend || true
+              exit 1
+            fi
+
+            echo "Waiting for nginx container to become healthy..."
+            NGINX_READY=false
+            for i in {1..30}; do
+              status=$(docker inspect --format='{{.State.Health.Status}}' newshub_nginx 2>/dev/null || echo "starting")
+              if [ "$status" = "healthy" ]; then
+                echo "✅ Nginx container is healthy"
+                NGINX_READY=true
+                break
+              fi
+              if [ $i -eq 1 ] || [ $((i % 5)) -eq 0 ]; then
+                echo "⏳ Nginx health status: $status ($i/30)"
+              fi
+              sleep 5
+            done
+
+            if [ "$NGINX_READY" = false ]; then
+              echo "❌ Nginx failed to become healthy. Dumping logs:"
+              docker-compose --env-file .env logs --tail=100 nginx || true
+              exit 1
+            fi
+
             # Ensure worker services are running with the new image
             docker-compose --env-file .env up -d celery_worker celery_beat celery_flower
             
+            echo "Final service status:"
+            docker-compose --env-file .env ps
+
             # Clean up old images
             docker image prune -af --filter "until=72h"
             
@@ -509,14 +574,20 @@ jobs:
       
       - name: Health check
         run: |
-          sleep 10
-          response=$(curl -s -o /dev/null -w "%{http_code}" http://${{ env.SERVER_HOST }}/health)
-          if [ $response -eq 200 ]; then
-            echo "✅ Health check passed"
-          else
-            echo "❌ Health check failed with status $response"
-            exit 1
-          fi
+          MAX_ATTEMPTS=12
+          SLEEP_SECONDS=10
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            response=$(curl -s -o /dev/null -w "%{http_code}" http://${{ env.SERVER_HOST }}/health)
+            if [ "$response" -eq 200 ] 2>/dev/null; then
+              echo "✅ Health check passed on attempt $i"
+              exit 0
+            fi
+            echo "⏳ Health check attempt $i/$MAX_ATTEMPTS returned status $response"
+            sleep $SLEEP_SECONDS
+          done
+          echo "❌ Health check failed after $MAX_ATTEMPTS attempts"
+          curl -s http://${{ env.SERVER_HOST }}/health || true
+          exit 1
       
       - name: Send notification to Telegram
         if: always()
