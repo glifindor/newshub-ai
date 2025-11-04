@@ -353,7 +353,12 @@ jobs:
             fi
             
             # Pull latest images
-            docker-compose --env-file .env pull
+            echo "Pulling latest images..."
+            docker-compose --env-file .env pull || {
+              echo "❌ Failed to pull images"
+              exit 1
+            }
+            echo "✅ Images pulled successfully"
             
             # TODO: Re-enable backup after first successful deployment
             # Backup database before update (skip if no DB exists yet)
@@ -368,11 +373,21 @@ jobs:
             echo "Skipping backup on initial deployment..."
             
             # Stop and remove old containers to avoid metadata issues
-            docker-compose --env-file .env down --remove-orphans
-            docker-compose --env-file .env rm -f -s -v backend frontend nginx postgres redis rabbitmq celery_worker celery_beat celery_flower || true
+            echo "Stopping existing containers..."
+            docker-compose --env-file .env down --remove-orphans || {
+              echo "⚠️  docker-compose down failed, continuing..."
+            }
+            
+            echo "Removing old containers..."
+            docker-compose --env-file .env rm -f -s -v backend frontend nginx postgres redis rabbitmq celery_worker celery_beat celery_flower 2>/dev/null || true
 
             # Start core services back up
-            docker-compose --env-file .env up -d postgres redis rabbitmq
+            echo "Starting core infrastructure services..."
+            docker-compose --env-file .env up -d postgres redis rabbitmq || {
+              echo "❌ Failed to start core services"
+              exit 1
+            }
+            echo "✅ Core services started"
             
             # Wait for containers to start (not checking health yet)
             echo "Waiting for containers to start..."
