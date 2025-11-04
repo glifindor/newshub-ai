@@ -265,18 +265,65 @@ jobs:
           # Environment
           ENVIRONMENT=production
           EOF
+          
+          # Verify .env.prod was created successfully
+          if [ ! -f .env.prod ]; then
+            echo "❌ ERROR: .env.prod file was not created!"
+            exit 1
+          fi
+          
+          echo "✅ .env.prod created successfully"
+          echo "File size: $(wc -c < .env.prod) bytes"
+          echo "Number of lines: $(wc -l < .env.prod)"
+          
+          # Show file structure (without sensitive values)
+          echo "Environment variables structure:"
+          grep -E "^[A-Z_]+=.+" .env.prod | sed 's/=.*/=***/' | head -20
       
       - name: Copy files to server
         run: |
+          # Ensure target directory exists
+          ssh -i ~/.ssh/id_rsa ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "mkdir -p /opt/newshub"
+          
+          # Copy files
           scp -i ~/.ssh/id_rsa .env.prod ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:/opt/newshub/.env
           scp -i ~/.ssh/id_rsa docker-compose.prod.yml ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:/opt/newshub/docker-compose.yml
           scp -r -i ~/.ssh/id_rsa nginx ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:/opt/newshub/
           scp -r -i ~/.ssh/id_rsa monitoring ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:/opt/newshub/
+          
+          # Verify .env file was copied and is not empty
+          ssh -i ~/.ssh/id_rsa ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} << 'VERIFY'
+            if [ ! -f /opt/newshub/.env ]; then
+              echo "❌ ERROR: .env file not found on server!"
+              exit 1
+            fi
+            
+            ENV_SIZE=$(wc -c < /opt/newshub/.env)
+            if [ "$ENV_SIZE" -eq 0 ]; then
+              echo "❌ ERROR: .env file is empty on server!"
+              exit 1
+            fi
+            
+            echo "✅ .env file copied successfully to server"
+            echo "File size: $ENV_SIZE bytes"
+            echo "Number of lines: $(wc -l < /opt/newshub/.env)"
+          VERIFY
       
       - name: Deploy on server
         run: |
           ssh -i ~/.ssh/id_rsa ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} << 'ENDSSH'
             cd /opt/newshub
+            
+            # Final verification that .env exists and is not empty
+            if [ ! -f .env ] || [ ! -s .env ]; then
+              echo "❌ FATAL ERROR: .env file is missing or empty in /opt/newshub/"
+              ls -la /opt/newshub/ || true
+              exit 1
+            fi
+            
+            echo "✅ .env file verified in /opt/newshub/"
+            echo "File size: $(wc -c < .env) bytes"
+            
             mkdir -p /opt/newshub/backups
 
             # Ensure modern docker-compose binary available (workaround for ContainerConfig bug)
