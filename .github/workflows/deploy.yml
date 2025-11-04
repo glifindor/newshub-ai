@@ -312,11 +312,13 @@ jobs:
                 break
               fi
             done
-            sleep 10
+            
+            # Extra buffer to ensure services are fully ready
+            sleep 20
 
             # Recreate backend first and wait for it to become ready
-            docker-compose up -d --force-recreate backend
-            sleep 45
+            docker-compose up -d backend
+            sleep 60
 
             # Run migrations inside backend container
             docker-compose exec -T backend /opt/venv/bin/alembic upgrade head
