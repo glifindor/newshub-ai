@@ -424,14 +424,23 @@ jobs:
             # Check Redis (extended to 40 attempts)
             REDIS_READY=false
             for i in {1..40}; do
-              if docker-compose --env-file .env exec -T redis redis-cli --no-auth-warning -a ${REDIS_PASSWORD} ping >/dev/null 2>&1; then
-                echo "✅ Redis is ready"
-                REDIS_READY=true
-                break
+              if [ -n "${REDIS_PASSWORD}" ]; then
+                # Redis with password
+                if docker-compose --env-file .env exec -T redis redis-cli --no-auth-warning -a ${REDIS_PASSWORD} ping >/dev/null 2>&1; then
+                  echo "✅ Redis is ready"
+                  REDIS_READY=true
+                  break
+                fi
               else
-                echo "⏳ Waiting for Redis... ($i/40)"
-                sleep 2
+                # Redis without password
+                if docker-compose --env-file .env exec -T redis redis-cli ping >/dev/null 2>&1; then
+                  echo "✅ Redis is ready"
+                  REDIS_READY=true
+                  break
+                fi
               fi
+              echo "⏳ Waiting for Redis... ($i/40)"
+              sleep 2
             done
             
             if [ "$REDIS_READY" = false ]; then
