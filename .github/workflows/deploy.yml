@@ -346,6 +346,11 @@ jobs:
             source .env
             set +a
 
+            # Enable strict error handling and verbose tracing to diagnose failures
+            set -Eeuo pipefail
+            trap 'echo "❌ Command failed (exit $?): $BASH_COMMAND" >&2' ERR
+            set -x
+
             # Ensure modern docker-compose binary available (workaround for ContainerConfig bug)
             if ! docker-compose version 2>/dev/null | grep -q "v2"; then
               curl -sSL "https://github.com/docker/compose/releases/download/v2.24.7/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
