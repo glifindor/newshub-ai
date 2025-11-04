@@ -355,15 +355,17 @@ jobs:
             # Pull latest images
             docker-compose --env-file .env pull
             
+            # TODO: Re-enable backup after first successful deployment
             # Backup database before update (skip if no DB exists yet)
-            if docker-compose --env-file .env ps postgres 2>/dev/null | grep -q "Up"; then
-              echo "Creating database backup..."
-              timeout 30 docker-compose --env-file .env exec -T postgres pg_dump -U ${POSTGRES_USER} ${POSTGRES_DB} > /opt/newshub/backups/backup_$(date +%Y%m%d_%H%M%S).sql 2>&1 || {
-                echo "⚠️  Backup failed or timed out (exit code: $?), continuing deployment..."
-              }
-            else
-              echo "PostgreSQL not running yet, skipping backup..."
-            fi
+            # if docker-compose --env-file .env ps postgres 2>/dev/null | grep -q "Up"; then
+            #   echo "Creating database backup..."
+            #   timeout 30 docker-compose --env-file .env exec -T postgres pg_dump -U ${POSTGRES_USER} ${POSTGRES_DB} > /opt/newshub/backups/backup_$(date +%Y%m%d_%H%M%S).sql 2>&1 || {
+            #     echo "⚠️  Backup failed or timed out (exit code: $?), continuing deployment..."
+            #   }
+            # else
+            #   echo "PostgreSQL not running yet, skipping backup..."
+            # fi
+            echo "Skipping backup on initial deployment..."
             
             # Stop and remove old containers to avoid metadata issues
             docker-compose --env-file .env down --remove-orphans
