@@ -378,21 +378,12 @@ jobs:
             echo "Waiting for containers to start..."
             sleep 15
             
-            # Show logs for debugging if services are unhealthy
+            # Show status
             echo "Checking service status..."
             docker-compose --env-file .env ps
             
-            # Always show PostgreSQL logs to debug startup issues
-            echo "=== PostgreSQL logs (last 50 lines) ==="
-            docker-compose --env-file .env logs --tail=50 postgres
-            
-            # Always show RabbitMQ logs to debug startup issues
-            echo "=== RabbitMQ logs (last 50 lines) ==="
-            docker-compose --env-file .env logs --tail=50 rabbitmq
-            
-            # Show Redis logs for comparison (it works)
-            echo "=== Redis logs (last 20 lines) ==="
-            docker-compose --env-file .env logs --tail=20 redis
+            # Skip detailed logs to reduce output size
+            # (Re-enable if needed for debugging specific issues)
             
             # Load environment variables for readiness checks
             set -a
@@ -403,16 +394,18 @@ jobs:
             echo "Performing active readiness checks..."
             
             # Check PostgreSQL (extended to 60 attempts = 2 minutes)
+            echo "Checking PostgreSQL readiness..."
             POSTGRES_READY=false
             for i in {1..60}; do
               if docker-compose --env-file .env exec -T postgres pg_isready -U ${POSTGRES_USER} >/dev/null 2>&1; then
                 echo "✅ PostgreSQL is ready"
                 POSTGRES_READY=true
                 break
-              else
-                echo "⏳ Waiting for PostgreSQL... ($i/60)"
-                sleep 2
               fi
+              if [ $((i % 10)) -eq 0 ]; then
+                echo "⏳ Waiting for PostgreSQL... ($i/60)"
+              fi
+              sleep 2
             done
             
             if [ "$POSTGRES_READY" = false ]; then
@@ -421,9 +414,8 @@ jobs:
               exit 1
             fi
             
-            echo "Starting Redis readiness check..."
-            
             # Check Redis (extended to 40 attempts)
+            echo "Checking Redis readiness..."
             REDIS_READY=false
             for i in {1..40}; do
               if [ -n "${REDIS_PASSWORD:-}" ]; then
@@ -454,16 +446,18 @@ jobs:
             fi
             
             # Check RabbitMQ (extended to 40 attempts)
+            echo "Checking RabbitMQ readiness..."
             RABBITMQ_READY=false
             for i in {1..40}; do
               if docker-compose --env-file .env exec -T rabbitmq rabbitmq-diagnostics check_running >/dev/null 2>&1; then
                 echo "✅ RabbitMQ is ready"
                 RABBITMQ_READY=true
                 break
-              else
-                echo "⏳ Waiting for RabbitMQ... ($i/40)"
-                sleep 2
               fi
+              if [ $((i % 10)) -eq 0 ]; then
+                echo "⏳ Waiting for RabbitMQ... ($i/40)"
+              fi
+              sleep 2
             done
             
             if [ "$RABBITMQ_READY" = false ]; then
