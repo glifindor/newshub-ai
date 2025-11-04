@@ -279,6 +279,21 @@ jobs:
           # Show file structure (without sensitive values)
           echo "Environment variables structure:"
           grep -E "^[A-Z_]+=.+" .env.prod | sed 's/=.*/=***/' | head -20
+          
+          # Check for empty critical variables
+          echo ""
+          echo "Checking critical variables:"
+          if grep -q "^POSTGRES_PASSWORD=$" .env.prod; then
+            echo "❌ WARNING: POSTGRES_PASSWORD is EMPTY!"
+          else
+            echo "✅ POSTGRES_PASSWORD is set"
+          fi
+          
+          if grep -q "^POSTGRES_USER=$" .env.prod; then
+            echo "❌ WARNING: POSTGRES_USER is EMPTY!"
+          else
+            echo "✅ POSTGRES_USER is set"
+          fi
       
       - name: Copy files to server
         run: |
@@ -355,17 +370,17 @@ jobs:
             echo "Checking service status..."
             docker-compose --env-file .env ps
             
-            # Check PostgreSQL logs if container is restarting
-            if docker-compose --env-file .env ps postgres | grep -q "restarting\|unhealthy"; then
-              echo "⚠️  PostgreSQL is restarting. Last 50 lines of logs:"
-              docker-compose --env-file .env logs --tail=50 postgres
-            fi
+            # Always show PostgreSQL logs to debug startup issues
+            echo "=== PostgreSQL logs (last 50 lines) ==="
+            docker-compose --env-file .env logs --tail=50 postgres
             
-            # Check RabbitMQ logs if container is restarting
-            if docker-compose --env-file .env ps rabbitmq | grep -q "restarting\|unhealthy"; then
-              echo "⚠️  RabbitMQ is restarting. Last 50 lines of logs:"
-              docker-compose --env-file .env logs --tail=50 rabbitmq
-            fi
+            # Always show RabbitMQ logs to debug startup issues
+            echo "=== RabbitMQ logs (last 50 lines) ==="
+            docker-compose --env-file .env logs --tail=50 rabbitmq
+            
+            # Show Redis logs for comparison (it works)
+            echo "=== Redis logs (last 20 lines) ==="
+            docker-compose --env-file .env logs --tail=20 redis
             
             # Load environment variables for readiness checks
             set -a
