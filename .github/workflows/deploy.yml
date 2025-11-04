@@ -300,6 +300,9 @@ jobs:
 
             # Start core services back up
             docker-compose up -d postgres redis rabbitmq
+            
+            # Wait for infrastructure to be healthy before proceeding
+            sleep 60
 
             # Recreate backend first and wait for it to become ready
             docker-compose up -d --force-recreate backend
