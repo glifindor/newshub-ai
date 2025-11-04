@@ -33,8 +33,10 @@ RUN mkdir -p public
 # Создание .env.production для build
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_WS_URL
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
-    NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL \
+ARG INTERNAL_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL} \
+    NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL} \
+    INTERNAL_API_URL=${INTERNAL_API_URL:-http://backend:8000/api} \
     NEXT_TELEMETRY_DISABLED=1
 
 # Установка всех зависимостей (включая dev) для сборки
@@ -50,6 +52,9 @@ RUN npm run build
 FROM node:20-alpine AS runner
 
 WORKDIR /app
+
+# Propagate internal API URL into runtime container (can be overridden at runtime)
+ARG INTERNAL_API_URL
 
 # Создание непривилегированного пользователя
 RUN addgroup --system --gid 1001 nodejs && \
@@ -71,7 +76,8 @@ USER nextjs
 
 ENV NODE_ENV=production \
     PORT=3000 \
-    HOSTNAME="0.0.0.0"
+    HOSTNAME="0.0.0.0" \
+    INTERNAL_API_URL=${INTERNAL_API_URL:-http://backend:8000/api}
 
 EXPOSE 3000
 

@@ -1,11 +1,14 @@
 /** @type {import('next').NextConfig} */
+const publicApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+const internalApiUrl = process.env.INTERNAL_API_URL || 'http://backend:8000/api'
+
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   
   // API URL
   env: {
-    API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api',
+    API_URL: publicApiUrl,
   },
 
   // Images optimization
@@ -25,11 +28,11 @@ const nextConfig = {
 
   // Rewrites for API proxy
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://backend:8000';
+    const normalizedInternalUrl = internalApiUrl.replace(/\/$/, '')
     return [
       {
         source: '/api/:path*',
-        destination: `${apiUrl}/:path*`,
+        destination: `${normalizedInternalUrl}/:path*`,
       },
     ];
   },
