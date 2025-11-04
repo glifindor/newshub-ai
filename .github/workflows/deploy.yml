@@ -357,8 +357,14 @@ jobs:
             
             # Check PostgreSQL logs if container is restarting
             if docker-compose --env-file .env ps postgres | grep -q "restarting\|unhealthy"; then
-              echo "⚠️  PostgreSQL is having issues. Last 30 lines of logs:"
-              docker-compose --env-file .env logs --tail=30 postgres
+              echo "⚠️  PostgreSQL is restarting. Last 50 lines of logs:"
+              docker-compose --env-file .env logs --tail=50 postgres
+            fi
+            
+            # Check RabbitMQ logs if container is restarting
+            if docker-compose --env-file .env ps rabbitmq | grep -q "restarting\|unhealthy"; then
+              echo "⚠️  RabbitMQ is restarting. Last 50 lines of logs:"
+              docker-compose --env-file .env logs --tail=50 rabbitmq
             fi
             
             # Load environment variables for readiness checks
