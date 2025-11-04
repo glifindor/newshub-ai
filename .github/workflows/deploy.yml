@@ -277,9 +277,6 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_rsa ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} << 'ENDSSH'
             cd /opt/newshub
-            set -a
-            source .env
-            set +a
             mkdir -p /opt/newshub/backups
 
             # Ensure modern docker-compose binary available (workaround for ContainerConfig bug)
@@ -289,17 +286,19 @@ jobs:
             fi
             
             # Pull latest images
-            docker-compose pull
+            docker-compose --env-file .env pull
             
-            # Backup database before update
-            docker-compose exec -T postgres pg_dump -U ${POSTGRES_USER} ${POSTGRES_DB} > /opt/newshub/backups/backup_$(date +%Y%m%d_%H%M%S).sql
+            # Backup database before update (skip if no DB exists yet)
+            if docker-compose --env-file .env ps postgres | grep -q "Up"; then
+              docker-compose --env-file .env exec -T postgres pg_dump -U ${POSTGRES_USER:-postgres} ${POSTGRES_DB:-newshub} > /opt/newshub/backups/backup_$(date +%Y%m%d_%H%M%S).sql || true
+            fi
             
             # Stop and remove old containers to avoid metadata issues
-            docker-compose down --remove-orphans
-            docker-compose rm -f -s -v backend frontend nginx postgres redis rabbitmq celery_worker celery_beat celery_flower || true
+            docker-compose --env-file .env down --remove-orphans
+            docker-compose --env-file .env rm -f -s -v backend frontend nginx postgres redis rabbitmq celery_worker celery_beat celery_flower || true
 
             # Start core services back up
-            docker-compose up -d postgres redis rabbitmq
+            docker-compose --env-file .env up -d postgres redis rabbitmq
             
             # Wait for containers to start (not checking health yet)
             echo "Waiting for containers to start..."
@@ -307,13 +306,18 @@ jobs:
             
             # Show logs for debugging if services are unhealthy
             echo "Checking service status..."
-            docker-compose ps
+            docker-compose --env-file .env ps
             
             # Check PostgreSQL logs if container is restarting
-            if docker-compose ps postgres | grep -q "restarting\|unhealthy"; then
+            if docker-compose --env-file .env ps postgres | grep -q "restarting\|unhealthy"; then
               echo "⚠️  PostgreSQL is having issues. Last 30 lines of logs:"
-              docker-compose logs --tail=30 postgres
+              docker-compose --env-file .env logs --tail=30 postgres
             fi
+            
+            # Load environment variables for readiness checks
+            set -a
+            source .env
+            set +a
             
             # Active readiness checks for each service with longer timeouts
             echo "Performing active readiness checks..."
@@ -321,7 +325,7 @@ jobs:
             # Check PostgreSQL (extended to 60 attempts = 2 minutes)
             POSTGRES_READY=false
             for i in {1..60}; do
-              if docker-compose exec -T postgres pg_isready -U ${POSTGRES_USER} >/dev/null 2>&1; then
+              if docker-compose --env-file .env exec -T postgres pg_isready -U ${POSTGRES_USER} >/dev/null 2>&1; then
                 echo "✅ PostgreSQL is ready"
                 POSTGRES_READY=true
                 break
@@ -333,14 +337,14 @@ jobs:
             
             if [ "$POSTGRES_READY" = false ]; then
               echo "❌ PostgreSQL failed to become ready. Dumping logs:"
-              docker-compose logs --tail=50 postgres
+              docker-compose --env-file .env logs --tail=50 postgres
               exit 1
             fi
             
             # Check Redis (extended to 40 attempts)
             REDIS_READY=false
             for i in {1..40}; do
-              if docker-compose exec -T redis redis-cli --no-auth-warning -a ${REDIS_PASSWORD} ping >/dev/null 2>&1; then
+              if docker-compose --env-file .env exec -T redis redis-cli --no-auth-warning -a ${REDIS_PASSWORD} ping >/dev/null 2>&1; then
                 echo "✅ Redis is ready"
                 REDIS_READY=true
                 break
@@ -352,14 +356,14 @@ jobs:
             
             if [ "$REDIS_READY" = false ]; then
               echo "❌ Redis failed to become ready. Dumping logs:"
-              docker-compose logs --tail=50 redis
+              docker-compose --env-file .env logs --tail=50 redis
               exit 1
             fi
             
             # Check RabbitMQ (extended to 40 attempts)
             RABBITMQ_READY=false
             for i in {1..40}; do
-              if docker-compose exec -T rabbitmq rabbitmq-diagnostics check_running >/dev/null 2>&1; then
+              if docker-compose --env-file .env exec -T rabbitmq rabbitmq-diagnostics check_running >/dev/null 2>&1; then
                 echo "✅ RabbitMQ is ready"
                 RABBITMQ_READY=true
                 break
@@ -371,24 +375,24 @@ jobs:
             
             if [ "$RABBITMQ_READY" = false ]; then
               echo "❌ RabbitMQ failed to become ready. Dumping logs:"
-              docker-compose logs --tail=50 rabbitmq
+              docker-compose --env-file .env logs --tail=50 rabbitmq
               exit 1
             fi
             
             echo "✅ All infrastructure services are fully ready!"
 
             # Recreate backend first and wait for it to become ready
-            docker-compose up -d backend
+            docker-compose --env-file .env up -d backend
             sleep 60
 
             # Run migrations inside backend container
-            docker-compose exec -T backend /opt/venv/bin/alembic upgrade head
+            docker-compose --env-file .env exec -T backend /opt/venv/bin/alembic upgrade head
 
             # Recreate frontend and nginx once backend is healthy
-            docker-compose up -d --force-recreate frontend nginx
+            docker-compose --env-file .env up -d --force-recreate frontend nginx
 
             # Ensure worker services are running with the new image
-            docker-compose up -d celery_worker celery_beat celery_flower
+            docker-compose --env-file .env up -d celery_worker celery_beat celery_flower
             
             # Clean up old images
             docker image prune -af --filter "until=72h"
