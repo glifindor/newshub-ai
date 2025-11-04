@@ -20,10 +20,10 @@ services:
       - "127.0.0.1:5432:5432"  # Доступ только с localhost
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
     restart: always
     deploy:
       resources:
@@ -57,10 +57,10 @@ services:
       - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
-      start_period: 10s
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
     restart: always
     deploy:
       resources:
@@ -94,7 +94,7 @@ services:
       test: ["CMD", "rabbitmq-diagnostics", "check_running"]
       interval: 30s
       timeout: 10s
-      retries: 5
+      retries: 10
       start_period: 60s
     restart: always
     deploy:

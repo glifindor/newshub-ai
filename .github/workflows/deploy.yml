@@ -313,8 +313,43 @@ jobs:
               fi
             done
             
-            # Extra buffer to ensure services are fully ready
-            sleep 20
+            # Active readiness checks for each service
+            echo "Performing active readiness checks..."
+            
+            # Check PostgreSQL
+            for i in {1..20}; do
+              if docker-compose exec -T postgres pg_isready -U ${POSTGRES_USER} >/dev/null 2>&1; then
+                echo "✅ PostgreSQL is ready"
+                break
+              else
+                echo "⏳ Waiting for PostgreSQL... ($i/20)"
+                sleep 2
+              fi
+            done
+            
+            # Check Redis
+            for i in {1..20}; do
+              if docker-compose exec -T redis redis-cli --no-auth-warning -a ${REDIS_PASSWORD} ping >/dev/null 2>&1; then
+                echo "✅ Redis is ready"
+                break
+              else
+                echo "⏳ Waiting for Redis... ($i/20)"
+                sleep 2
+              fi
+            done
+            
+            # Check RabbitMQ
+            for i in {1..20}; do
+              if docker-compose exec -T rabbitmq rabbitmq-diagnostics check_running >/dev/null 2>&1; then
+                echo "✅ RabbitMQ is ready"
+                break
+              else
+                echo "⏳ Waiting for RabbitMQ... ($i/20)"
+                sleep 2
+              fi
+            done
+            
+            echo "All infrastructure services are fully ready!"
 
             # Recreate backend first and wait for it to become ready
             docker-compose up -d backend
