@@ -302,11 +302,21 @@ jobs:
             docker-compose up -d postgres redis rabbitmq
             
             # Wait for infrastructure to be healthy before proceeding
-            sleep 60
+            echo "Waiting for infrastructure to become healthy..."
+            for i in {1..30}; do
+              if docker-compose ps | grep -q "unhealthy"; then
+                echo "Services still starting... ($i/30)"
+                sleep 3
+              else
+                echo "Infrastructure is healthy!"
+                break
+              fi
+            done
+            sleep 10
 
             # Recreate backend first and wait for it to become ready
             docker-compose up -d --force-recreate backend
-            sleep 30
+            sleep 45
 
             # Run migrations inside backend container
             docker-compose exec -T backend /opt/venv/bin/alembic upgrade head
