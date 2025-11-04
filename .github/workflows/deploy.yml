@@ -577,8 +577,8 @@ jobs:
           MAX_ATTEMPTS=12
           SLEEP_SECONDS=10
           for i in $(seq 1 $MAX_ATTEMPTS); do
-            response=$(curl -s -o /dev/null -w "%{http_code}" http://${{ env.SERVER_HOST }}/health)
-            if [ "$response" -eq 200 ] 2>/dev/null; then
+            response=$(curl -sS -o /dev/null -w "%{http_code}" http://${{ env.SERVER_HOST }}/health || printf '000')
+            if [ "$response" = "200" ]; then
               echo "✅ Health check passed on attempt $i"
               exit 0
             fi
@@ -586,7 +586,10 @@ jobs:
             sleep $SLEEP_SECONDS
           done
           echo "❌ Health check failed after $MAX_ATTEMPTS attempts"
-          curl -s http://${{ env.SERVER_HOST }}/health || true
+          echo "Last /health response (headers + body):"
+          curl -sS -i http://${{ env.SERVER_HOST }}/health || true
+          echo "Fetching backend and nginx logs for diagnostics..."
+          ssh -i ~/.ssh/id_rsa ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "cd /opt/newshub && docker-compose --env-file .env logs --tail=80 backend nginx || true"
           exit 1
       
       - name: Send notification to Telegram
