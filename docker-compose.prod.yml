@@ -12,7 +12,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backups:/backups
@@ -23,7 +22,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 10
-      start_period: 40s
+      start_period: 60s
     restart: always
     deploy:
       resources:

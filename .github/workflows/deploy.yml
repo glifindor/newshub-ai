@@ -301,55 +301,81 @@ jobs:
             # Start core services back up
             docker-compose up -d postgres redis rabbitmq
             
-            # Wait for infrastructure to be healthy before proceeding
-            echo "Waiting for infrastructure to become healthy..."
-            for i in {1..30}; do
-              if docker-compose ps | grep -q "unhealthy"; then
-                echo "Services still starting... ($i/30)"
-                sleep 3
-              else
-                echo "Infrastructure is healthy!"
-                break
-              fi
-            done
+            # Wait for containers to start (not checking health yet)
+            echo "Waiting for containers to start..."
+            sleep 15
             
-            # Active readiness checks for each service
+            # Show logs for debugging if services are unhealthy
+            echo "Checking service status..."
+            docker-compose ps
+            
+            # Check PostgreSQL logs if container is restarting
+            if docker-compose ps postgres | grep -q "restarting\|unhealthy"; then
+              echo "⚠️  PostgreSQL is having issues. Last 30 lines of logs:"
+              docker-compose logs --tail=30 postgres
+            fi
+            
+            # Active readiness checks for each service with longer timeouts
             echo "Performing active readiness checks..."
             
-            # Check PostgreSQL
-            for i in {1..20}; do
+            # Check PostgreSQL (extended to 60 attempts = 2 minutes)
+            POSTGRES_READY=false
+            for i in {1..60}; do
               if docker-compose exec -T postgres pg_isready -U ${POSTGRES_USER} >/dev/null 2>&1; then
                 echo "✅ PostgreSQL is ready"
+                POSTGRES_READY=true
                 break
               else
-                echo "⏳ Waiting for PostgreSQL... ($i/20)"
+                echo "⏳ Waiting for PostgreSQL... ($i/60)"
                 sleep 2
               fi
             done
             
-            # Check Redis
-            for i in {1..20}; do
+            if [ "$POSTGRES_READY" = false ]; then
+              echo "❌ PostgreSQL failed to become ready. Dumping logs:"
+              docker-compose logs --tail=50 postgres
+              exit 1
+            fi
+            
+            # Check Redis (extended to 40 attempts)
+            REDIS_READY=false
+            for i in {1..40}; do
               if docker-compose exec -T redis redis-cli --no-auth-warning -a ${REDIS_PASSWORD} ping >/dev/null 2>&1; then
                 echo "✅ Redis is ready"
+                REDIS_READY=true
                 break
               else
-                echo "⏳ Waiting for Redis... ($i/20)"
+                echo "⏳ Waiting for Redis... ($i/40)"
                 sleep 2
               fi
             done
             
-            # Check RabbitMQ
-            for i in {1..20}; do
+            if [ "$REDIS_READY" = false ]; then
+              echo "❌ Redis failed to become ready. Dumping logs:"
+              docker-compose logs --tail=50 redis
+              exit 1
+            fi
+            
+            # Check RabbitMQ (extended to 40 attempts)
+            RABBITMQ_READY=false
+            for i in {1..40}; do
               if docker-compose exec -T rabbitmq rabbitmq-diagnostics check_running >/dev/null 2>&1; then
                 echo "✅ RabbitMQ is ready"
+                RABBITMQ_READY=true
                 break
               else
-                echo "⏳ Waiting for RabbitMQ... ($i/20)"
+                echo "⏳ Waiting for RabbitMQ... ($i/40)"
                 sleep 2
               fi
             done
             
-            echo "All infrastructure services are fully ready!"
+            if [ "$RABBITMQ_READY" = false ]; then
+              echo "❌ RabbitMQ failed to become ready. Dumping logs:"
+              docker-compose logs --tail=50 rabbitmq
+              exit 1
+            fi
+            
+            echo "✅ All infrastructure services are fully ready!"
 
             # Recreate backend first and wait for it to become ready
             docker-compose up -d backend
